@@ -1,0 +1,6 @@
+@LuxmanBackend_HostAddress = http://localhost:5294
+
+GET {{LuxmanBackend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
