@@ -18,12 +18,16 @@
 }
 
 /* Tarjetas y contenedores con Glassmorphism */
-.tarjeta-cristal {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 1rem;
+.tarjeta-cristal,
+.card.tarjeta-cristal {
+  background: rgba(10, 16, 28, 0.88) !important;
+  --bs-card-bg: rgba(10, 16, 28, 0.88) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 1.25rem !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6) !important;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.3s ease,
               box-shadow 0.3s ease;
@@ -31,9 +35,9 @@
 
 /* Micro-interacción: elevación y brillo sutil al pasar el cursor */
 .tarjeta-cristal:hover {
-  transform: translateY(-5px);
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(16, 185, 129, 0.2);
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7), 0 0 20px rgba(16, 185, 129, 0.25) !important;
 }
 
 /* Div gris simulando la imagen del tanque */
@@ -70,20 +74,30 @@
   box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
 }
 
+/* Botón Verde Esmeralda con resplandor elegante */
+.btn-verde-esmeralda {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35) !important;
+}
+
 .btn-verde-esmeralda:hover {
-  background-color: #059669;
-  border-color: #059669;
-  color: #ffffff;
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.55);
+  background-color: #059669 !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.55) !important;
 }
 
 /* ==========================================================================
    Estilos para el Cotizador de Tanques
    ========================================================================== */
 .input-cristal {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
   color: #ffffff !important;
   border-radius: 0.75rem !important;
   padding: 0.75rem 1rem !important;
@@ -92,53 +106,65 @@
 }
 
 .input-cristal:focus {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
   border-color: #10b981 !important;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.35) !important;
   outline: none !important;
 }
 
 .input-cristal::placeholder {
-  color: rgba(255, 255, 255, 0.35) !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.input-group-text-cristal {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #cbd5e1 !important;
+  border-radius: 0 0.75rem 0.75rem 0 !important;
 }
 
 /* Tarjeta selectora para tipo de acero */
 .tarjeta-seleccion {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.85rem;
-  padding: 1rem 1.25rem;
-  cursor: pointer;
-  transition: all 0.25s ease;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 0.85rem !important;
+  padding: 1.15rem !important;
+  cursor: pointer !important;
+  color: #f1f5f9 !important;
+  transition: all 0.25s ease !important;
 }
 
 .tarjeta-seleccion:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px) !important;
 }
 
 .tarjeta-seleccion.seleccionada {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: #10b981;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25) !important;
 }
 
 /* Botones preset de litros */
 .btn-preset {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #cbd5e1;
-  border-radius: 2rem;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #e2e8f0 !important;
+  border-radius: 2rem !important;
+  padding: 0.4rem 1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
 }
 
 .btn-preset:hover, .btn-preset.activo {
-  background: #10b981;
-  border-color: #10b981;
-  color: #ffffff;
-  transform: translateY(-1px);
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
 }
 
 /* Alerta estilizada */

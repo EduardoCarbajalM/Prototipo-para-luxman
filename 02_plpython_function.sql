@@ -36,6 +36,9 @@ BEGIN
                 tipo_acero = TD["new"]["tipo_acero"]
                 tiene_agitacion = TD["new"]["tiene_agitacion"]
 
+                if litros <= 0:
+                    plpy.error("Los litros del tanque deben ser mayores a cero (no se permiten valores negativos ni cero)")
+
                 if tipo_acero == '304':
                     precio_base = litros * precio_litro_304
                 elif tipo_acero == '316':
@@ -59,6 +62,10 @@ BEGIN
                 v_precio_litro NUMERIC;
                 v_costo_agitacion NUMERIC := 0.0;
             BEGIN
+                IF NEW.litros_tanque <= 0 THEN
+                    RAISE EXCEPTION 'Los litros del tanque deben ser mayores a cero (no se permiten valores negativos ni cero)';
+                END IF;
+
                 IF NEW.tipo_acero = '304' THEN
                     v_precio_litro := 45.50;
                 ELSIF NEW.tipo_acero = '316' THEN

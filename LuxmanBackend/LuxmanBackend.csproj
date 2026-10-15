@@ -7,10 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="itext" Version="9.8.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.31" />
+    <PackageReference Include="MongoDB.Driver" Version="3.12.0" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
     <PackageReference Include="QuestPDF" Version="2026.8.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <!-- imagenes del membrete (header/footer) que usa QuestPDF, se copian al publicar -->
+  <ItemGroup>
+    <None Update="Assets\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -90,30 +90,39 @@ namespace LuxmanErp.Controllers
 
         // ===============================================================
         // GET api/cotizacion/5/pdf
-        // Genera y descarga el PDF de una cotizacion (metodo mock/demo
-        // para mostrar como se conecta el PdfService)
+        // Genera y descarga el PDF oficial de una cotizacion guardada en la BD
         // ===============================================================
         [HttpGet("{idCotizacion}/pdf")]
         public IActionResult DescargarPdf(int idCotizacion)
         {
-            // OJO: esto es un mock nada mas para mostrar la estructura,
-            // en la version final aqui habria que consultar la cotizacion real
-            // de la base de datos usando el idCotizacion
-            Cotizacion cotizacionDeEjemplo = new Cotizacion
+            Cotizacion? cotizacion;
+            string nombreCliente;
+            try
             {
-                idCotizacion = idCotizacion,
-                litrosTanque = 1000,
-                tipoAcero = "316",
-                tieneAgitacion = true,
-                precioBase = 68750.00m,
-                precioFinal = 77250.00m,
-                fechaCreacion = DateTime.Now
-            };
+                (cotizacion, nombreCliente) = _cotizacionService.ObtenerCotizacionPorId(idCotizacion);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error al consultar la cotizacion: " + ex.Message);
+            }
 
-            byte[] pdfBytes = _pdfService.GenerarPdfCotizacion(cotizacionDeEjemplo, "Cliente de Ejemplo SA de CV");
+            if (cotizacion == null)
+            {
+                return NotFound($"No existe la cotizacion #{idCotizacion}");
+            }
+
+            byte[] pdfBytes;
+            try
+            {
+                pdfBytes = _pdfService.GenerarPdfCotizacion(cotizacion, nombreCliente);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error al generar el PDF: " + ex.Message);
+            }
 
             // regresamos el pdf como archivo descargable
-            return File(pdfBytes, "application/pdf", $"cotizacion_{idCotizacion}.pdf");
+            return File(pdfBytes, "application/pdf", $"Cotizacion_Luxman_COT-{idCotizacion:D5}.pdf");
         }
     }
 }

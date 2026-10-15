@@ -1,4 +1,9 @@
 using LuxmanErp.Services;
+using QuestPDF.Infrastructure;
+
+// QuestPDF necesita que declaremos la licencia antes de generar cualquier PDF
+// (Community es gratis para proyectos escolares / empresas pequeñas)
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,7 +23,8 @@ builder.Services.AddCors(opciones =>
     {
         politica.SetIsOriginAllowed(_ => true)
                 .AllowAnyHeader()
-                .AllowAnyMethod();
+                .AllowAnyMethod()
+                .WithExposedHeaders("Content-Disposition");
     });
 });
 

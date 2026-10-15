@@ -32,6 +32,11 @@ namespace LuxmanErp.Services
 
             // validacion basica antes de mandar a la base, para no batallar
             // con el error feo de postgres
+            if (datosCotizacion.litrosTanque <= 0)
+            {
+                throw new ArgumentException("Los litros del tanque deben ser mayores a cero, no se permiten valores negativos ni cero.");
+            }
+
             if (datosCotizacion.tipoAcero != "304" && datosCotizacion.tipoAcero != "316")
             {
                 throw new ArgumentException("El tipo de acero debe ser 304 o 316, checa el formulario");
@@ -80,6 +85,54 @@ namespace LuxmanErp.Services
             cotizacionCreada.tieneAgitacion = datosCotizacion.tieneAgitacion;
 
             return cotizacionCreada;
+        }
+
+        // -----------------------------------------------------------------
+        // Metodo para traer una sola cotizacion por su id (se usa para el PDF)
+        // regresa null si no existe. Tambien trae el nombre del cliente si tiene,
+        // si no, se pone "Público en general"
+        // -----------------------------------------------------------------
+        public (Cotizacion? cotizacion, string nombreCliente) ObtenerCotizacionPorId(int idCotizacion)
+        {
+            using (NpgsqlConnection conexion = new NpgsqlConnection(_connectionString))
+            {
+                conexion.Open();
+
+                string queryGet = @"
+                    SELECT c.id_cotizacion, c.id_cliente, c.litros_tanque, c.tipo_acero, c.tiene_agitacion,
+                           c.precio_base, c.precio_final, c.is_cotizacion_aprobada, c.fecha_creacion,
+                           cl.nombre_cliente
+                    FROM cotizaciones c
+                    LEFT JOIN clientes cl ON cl.id_cliente = c.id_cliente
+                    WHERE c.id_cotizacion = @idCotizacion;";
+
+                using (NpgsqlCommand comando = new NpgsqlCommand(queryGet, conexion))
+                {
+                    comando.Parameters.AddWithValue("idCotizacion", idCotizacion);
+
+                    using (NpgsqlDataReader lector = comando.ExecuteReader())
+                    {
+                        if (!lector.Read())
+                        {
+                            return (null, "");
+                        }
+
+                        Cotizacion c = new Cotizacion();
+                        c.idCotizacion = lector.GetInt32(0);
+                        c.idCliente = lector.IsDBNull(1) ? (int?)null : lector.GetInt32(1);
+                        c.litrosTanque = lector.GetDecimal(2);
+                        c.tipoAcero = lector.GetString(3);
+                        c.tieneAgitacion = !lector.IsDBNull(4) && lector.GetBoolean(4);
+                        c.precioBase = lector.IsDBNull(5) ? 0m : lector.GetDecimal(5);
+                        c.precioFinal = lector.IsDBNull(6) ? 0m : lector.GetDecimal(6);
+                        c.isCotizacionAprobada = !lector.IsDBNull(7) && lector.GetBoolean(7);
+                        c.fechaCreacion = lector.IsDBNull(8) ? DateTime.Now : lector.GetDateTime(8);
+
+                        string nombreCliente = lector.IsDBNull(9) ? "Público en general" : lector.GetString(9);
+                        return (c, nombreCliente);
+                    }
+                }
+            }
         }
 
         // -----------------------------------------------------------------

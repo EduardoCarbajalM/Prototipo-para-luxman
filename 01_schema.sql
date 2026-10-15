@@ -29,8 +29,8 @@ CREATE TABLE clientes (
 CREATE TABLE cotizaciones (
     id_cotizacion       SERIAL PRIMARY KEY,
     id_cliente          INTEGER REFERENCES clientes(id_cliente), -- opcional para personas/visitantes sin cuenta
-    litros_tanque       NUMERIC(10,2) NOT NULL,
-    tipo_acero          VARCHAR(5) NOT NULL, -- puede ser '304' o '316'
+    litros_tanque       NUMERIC(10,2) NOT NULL CHECK (litros_tanque > 0),
+    tipo_acero          VARCHAR(5) NOT NULL CHECK (tipo_acero IN ('304', '316')),
     tiene_agitacion     BOOLEAN DEFAULT FALSE,
     precio_base         NUMERIC(12,2), -- esto lo calcula la funcion de python, no se manda desde el back
     precio_final        NUMERIC(12,2), -- precio_base + extras
