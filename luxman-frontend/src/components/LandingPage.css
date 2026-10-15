@@ -1,0 +1,79 @@
+/* ==========================================================================
+   Estilos Dark Mode Premium y Glassmorphism para LandingPage
+   ========================================================================== */
+
+/* Fondo global con gradiente azul marino muy oscuro a negro carbón */
+.fondo-oscuro-gradiente {
+  background: linear-gradient(180deg, #090e17 0%, #06090f 50%, #020305 100%);
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+/* Navbar con efecto Glassmorphism */
+.navbar-cristal {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Tarjetas y contenedores con Glassmorphism */
+.tarjeta-cristal {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+/* Micro-interacción: elevación y brillo sutil al pasar el cursor */
+.tarjeta-cristal:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+/* Div gris simulando la imagen del tanque */
+.espacio-imagen-tanque {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  height: 200px;
+}
+
+/* Insignias con estilo cristal para sectores e información */
+.insignia-cristal {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  transition: all 0.25s ease;
+}
+
+.insignia-cristal:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+/* Botón Verde Esmeralda con resplandor elegante */
+.btn-verde-esmeralda {
+  background-color: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
+}
+
+.btn-verde-esmeralda:hover {
+  background-color: #059669;
+  border-color: #059669;
+  color: #ffffff;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.55);
+}

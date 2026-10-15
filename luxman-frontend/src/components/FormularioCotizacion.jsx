@@ -29,8 +29,15 @@ function FormularioCotizacion() {
       return;
     }
 
+    // si los litros son negativos o cero, mostramos error y no enviamos nada
+    if (parseFloat(litrosTanque) <= 0) {
+      setMensajeError("Los litros ingresados deben ser un número mayor a cero");
+      return;
+    }
+
     setCargando(true);
     setMensajeError("");
+    setCotizacionCreada(null);
 
     // armamos el objetito que se va a mandar al backend, tiene que
     // coincidir con el CotizacionRequestDTO de C#
@@ -59,9 +66,9 @@ function FormularioCotizacion() {
       const datosRespuesta = await respuesta.json();
       setCotizacionCreada(datosRespuesta);
     } catch (error) {
-      // aqui atrapamos cualquier bronca, ya sea de la red o del backend
-      console.log("error al crear cotizacion:", error); // para debuggear en consola
-      setMensajeError("No se pudo crear la cotizacion, intenta de nuevo");
+      // si el backend en el puerto 5294 esta apagado o falla la red, caemos aqui
+      console.log("error al crear cotizacion:", error);
+      setMensajeError("Error de conexión con el servidor");
     } finally {
       setCargando(false);
     }

@@ -27,7 +27,7 @@ services:
     build: ./luxman-frontend
     container_name: luxman_frontend_prod
     ports:
-      - "80:80"
+      - "5173:80"
     depends_on:
       - backend
 
