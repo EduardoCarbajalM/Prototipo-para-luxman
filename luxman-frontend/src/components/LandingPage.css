@@ -77,3 +77,83 @@
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 12px 30px rgba(16, 185, 129, 0.55);
 }
+
+/* ==========================================================================
+   Estilos para el Cotizador de Tanques
+   ========================================================================== */
+.input-cristal {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 1.1rem !important;
+  transition: all 0.25s ease !important;
+}
+
+.input-cristal:focus {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3) !important;
+  outline: none !important;
+}
+
+.input-cristal::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Tarjeta selectora para tipo de acero */
+.tarjeta-seleccion {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.tarjeta-seleccion:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.tarjeta-seleccion.seleccionada {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #10b981;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+}
+
+/* Botones preset de litros */
+.btn-preset {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  border-radius: 2rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.btn-preset:hover, .btn-preset.activo {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Alerta estilizada */
+.alerta-cristal-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.alerta-cristal-exito {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  border-radius: 0.75rem;
+}
+

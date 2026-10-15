@@ -49,7 +49,8 @@ namespace LuxmanErp.Services
 
                 using (NpgsqlCommand comando = new NpgsqlCommand(queryInsert, conexion))
                 {
-                    comando.Parameters.AddWithValue("idCliente", datosCotizacion.idCliente);
+                    var paramCliente = comando.Parameters.AddWithValue("idCliente", (object?)datosCotizacion.idCliente ?? DBNull.Value);
+                    paramCliente.NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Integer;
                     comando.Parameters.AddWithValue("litros", datosCotizacion.litrosTanque);
                     comando.Parameters.AddWithValue("tipoAcero", datosCotizacion.tipoAcero);
                     comando.Parameters.AddWithValue("agitacion", datosCotizacion.tieneAgitacion);
@@ -106,7 +107,7 @@ namespace LuxmanErp.Services
                         {
                             Cotizacion c = new Cotizacion();
                             c.idCotizacion = lector.GetInt32(lector.GetOrdinal("id_cotizacion"));
-                            c.idCliente = lector.GetInt32(lector.GetOrdinal("id_cliente"));
+                            c.idCliente = lector.IsDBNull(lector.GetOrdinal("id_cliente")) ? (int?)null : lector.GetInt32(lector.GetOrdinal("id_cliente"));
                             c.litrosTanque = lector.GetDecimal(lector.GetOrdinal("litros_tanque"));
                             c.tipoAcero = lector.GetString(lector.GetOrdinal("tipo_acero"));
                             c.tieneAgitacion = lector.GetBoolean(lector.GetOrdinal("tiene_agitacion"));

@@ -16,7 +16,7 @@ builder.Services.AddCors(opciones =>
 {
     opciones.AddPolicy("PermitirFrontendReact", politica =>
     {
-        politica.WithOrigins("http://localhost:5173") // puerto default de Vite
+        politica.SetIsOriginAllowed(_ => true)
                 .AllowAnyHeader()
                 .AllowAnyMethod();
     });

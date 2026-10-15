@@ -7,7 +7,7 @@ namespace LuxmanErp.Models
     public class Cotizacion
     {
         public int idCotizacion { get; set; }
-        public int idCliente { get; set; }
+        public int? idCliente { get; set; } // Opcional, para usuarios o visitantes sin cuenta
         public decimal litrosTanque { get; set; }
         public string tipoAcero { get; set; } // "304" o "316"
         public bool tieneAgitacion { get; set; }
@@ -23,7 +23,7 @@ namespace LuxmanErp.Models
     // este DTO es el que en verdad llega desde React, solo trae lo que el usuario captura
     public class CotizacionRequestDTO
     {
-        public int idCliente { get; set; }
+        public int? idCliente { get; set; } // Opcional
         public decimal litrosTanque { get; set; }
         public string tipoAcero { get; set; }
         public bool tieneAgitacion { get; set; }

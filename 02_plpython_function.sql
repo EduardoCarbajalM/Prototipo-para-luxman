@@ -6,58 +6,79 @@
 -- en la base de datos, si no, truena feo
 -- ===================================================================
 
-CREATE EXTENSION IF NOT EXISTS plpython3u;
+DO $$
+BEGIN
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS plpython3u;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'plpython3u no está disponible en este entorno, se utilizará fallback PL/pgSQL';
+    END;
+END $$;
 
 -- ===================================================================
 -- FUNCION: fn_calcular_precio_cotizacion
--- aqui calculamos el precio base dependiendo del tipo de acero
--- y le sumamos costo extra si el tanque lleva agitacion
+-- Si plpython3u está instalado, usamos PL/Python como pide el proyecto.
+-- Si no está disponible en el contenedor, se usa PL/pgSQL como respaldo seguro.
 -- ===================================================================
-CREATE OR REPLACE FUNCTION fn_calcular_precio_cotizacion()
-RETURNS trigger AS $$
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'plpython3u') THEN
+        EXECUTE $py$
+            CREATE OR REPLACE FUNCTION fn_calcular_precio_cotizacion()
+            RETURNS trigger AS $func$
+                # ---------------------------------------------------------------
+                # Precios por litro segun el tipo de acero (PL/Python)
+                # ---------------------------------------------------------------
+                precio_litro_304 = 45.50
+                precio_litro_316 = 68.75  # el 316 es mas caro porque aguanta mas la corrosion
 
-    # ---------------------------------------------------------------
-    # aqui definimos los precios por litro segun el tipo de acero
-    # esto en teoria deberia venir de una tabla de precios pero
-    # para el proyecto lo dejamos hardcodeado, ahi se puede mejorar despues
-    # ---------------------------------------------------------------
-    precio_litro_304 = 45.50
-    precio_litro_316 = 68.75  # el 316 es mas caro porque aguanta mas la corrosion
+                litros = float(TD["new"]["litros_tanque"])
+                tipo_acero = TD["new"]["tipo_acero"]
+                tiene_agitacion = TD["new"]["tiene_agitacion"]
 
-    litros = TD["new"]["litros_tanque"]
-    tipo_acero = TD["new"]["tipo_acero"]
-    tiene_agitacion = TD["new"]["tiene_agitacion"]
+                if tipo_acero == '304':
+                    precio_base = litros * precio_litro_304
+                elif tipo_acero == '316':
+                    precio_base = litros * precio_litro_316
+                else:
+                    plpy.error("Tipo de acero no valido, solo se aceptan 304 o 316")
 
-    # convertimos litros a float por si acaso llega como Decimal raro
-    litros = float(litros)
+                costo_extra_agitacion = 8500.00 if tiene_agitacion else 0.0
+                precio_final = precio_base + costo_extra_agitacion
 
-    precio_base = 0.0
+                TD["new"]["precio_base"] = precio_base
+                TD["new"]["precio_final"] = precio_final
+                return "MODIFY"
+            $func$ LANGUAGE plpython3u;
+        $py$;
+    ELSE
+        EXECUTE $sql$
+            CREATE OR REPLACE FUNCTION fn_calcular_precio_cotizacion()
+            RETURNS trigger AS $func$
+            DECLARE
+                v_precio_litro NUMERIC;
+                v_costo_agitacion NUMERIC := 0.0;
+            BEGIN
+                IF NEW.tipo_acero = '304' THEN
+                    v_precio_litro := 45.50;
+                ELSIF NEW.tipo_acero = '316' THEN
+                    v_precio_litro := 68.75;
+                ELSE
+                    RAISE EXCEPTION 'Tipo de acero no valido, solo se aceptan 304 o 316';
+                END IF;
 
-    # aqui va la logica principal, nada de diccionarios raros, todo con if/else
-    # para que se entienda facil
-    if tipo_acero == '304':
-        precio_base = litros * precio_litro_304
-    elif tipo_acero == '316':
-        precio_base = litros * precio_litro_316
-    else:
-        # si mandan un tipo de acero raro, truena el insert para que se den cuenta
-        plpy.error("Tipo de acero no valido, solo se aceptan 304 o 316")
+                IF NEW.tiene_agitacion THEN
+                    v_costo_agitacion := 8500.00;
+                END IF;
 
-    # costo extra si el tanque necesita motor de agitacion
-    costo_extra_agitacion = 0.0
-    if tiene_agitacion:
-        costo_extra_agitacion = 8500.00  # precio fijo del kit de agitacion, ya con motor y flecha
-
-    precio_final = precio_base + costo_extra_agitacion
-
-    # guardamos los valores calculados en el registro que se va a insertar
-    TD["new"]["precio_base"] = precio_base
-    TD["new"]["precio_final"] = precio_final
-
-    # devolvemos MODIFY para que postgres use los valores nuevos que acabamos de calcular
-    return "MODIFY"
-
-$$ LANGUAGE plpython3u;
+                NEW.precio_base := NEW.litros_tanque * v_precio_litro;
+                NEW.precio_final := NEW.precio_base + v_costo_agitacion;
+                RETURN NEW;
+            END;
+            $func$ LANGUAGE plpgsql;
+        $sql$;
+    END IF;
+END $$;
 
 
 -- ===================================================================

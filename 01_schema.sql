@@ -28,7 +28,7 @@ CREATE TABLE clientes (
 -- ===================================================================
 CREATE TABLE cotizaciones (
     id_cotizacion       SERIAL PRIMARY KEY,
-    id_cliente          INTEGER NOT NULL REFERENCES clientes(id_cliente),
+    id_cliente          INTEGER REFERENCES clientes(id_cliente), -- opcional para personas/visitantes sin cuenta
     litros_tanque       NUMERIC(10,2) NOT NULL,
     tipo_acero          VARCHAR(5) NOT NULL, -- puede ser '304' o '316'
     tiene_agitacion     BOOLEAN DEFAULT FALSE,

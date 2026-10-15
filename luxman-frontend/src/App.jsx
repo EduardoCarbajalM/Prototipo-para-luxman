@@ -11,9 +11,7 @@ function App() {
       {pantallaActual === 'inicio' ? (
         <LandingPage alIrACotizador={() => setPantallaActual('cotizador')} />
       ) : (
-        <div className="container mt-5">
-          <FormularioCotizacion />
-        </div>
+        <FormularioCotizacion alVolver={() => setPantallaActual('inicio')} />
       )}
     </div>
   );
