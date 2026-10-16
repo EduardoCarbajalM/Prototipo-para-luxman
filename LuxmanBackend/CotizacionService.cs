@@ -55,8 +55,16 @@ namespace LuxmanErp.Services
 
                 using (NpgsqlCommand comando = new NpgsqlCommand(queryInsert, conexion))
                 {
-                    var paramCliente = comando.Parameters.AddWithValue("idCliente", (object?)datosCotizacion.idCliente ?? DBNull.Value);
+                    // =========================================================
+                    // CORRECCIÓN: Evitar que el idCliente 0 de React truene la base
+                    // =========================================================
+                    object valorIdCliente = (datosCotizacion.idCliente == 0 || datosCotizacion.idCliente == null) 
+                        ? DBNull.Value 
+                        : datosCotizacion.idCliente;
+
+                    var paramCliente = comando.Parameters.AddWithValue("idCliente", valorIdCliente);
                     paramCliente.NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Integer;
+                    
                     comando.Parameters.AddWithValue("litros", datosCotizacion.litrosTanque);
                     comando.Parameters.AddWithValue("tipoAcero", datosCotizacion.tipoAcero);
                     comando.Parameters.AddWithValue("agitacion", datosCotizacion.tieneAgitacion);
