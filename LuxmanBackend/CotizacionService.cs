@@ -18,7 +18,8 @@ namespace LuxmanErp.Services
         // desde el appsettings.json
         public CotizacionService(IConfiguration configuration)
         {
-            _connectionString = configuration.GetConnectionString("LuxmanDb");
+            _connectionString = configuration.GetConnectionString("DefaultConnection")
+                        ?? throw new InvalidOperationException("La cadena de conexión 'DefaultConnection' no fue encontrada.");
         }
 
         // -----------------------------------------------------------------

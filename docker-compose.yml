@@ -14,6 +14,12 @@ services:
       - ./01_schema.sql:/docker-entrypoint-initdb.d/1_schema.sql
       - ./02_plpython_function.sql:/docker-entrypoint-initdb.d/2_plpython_function.sql
 
+  mongo:
+    image: mongo:7
+    container_name: luxman_mongo_prod
+    volumes:
+      - mongo_data:/data/db
+
   backend:
     build: ./LuxmanBackend
     container_name: luxman_backend_prod
@@ -21,8 +27,10 @@ services:
       - "5294:8080"
     environment:
       - ConnectionStrings__LuxmanDb=Host=db;Port=5432;Database=postgres;Username=postgres;Password=admin
+      - ConnectionStrings__MongoDb=mongodb://mongo:27017
     depends_on:
       - db
+      - mongo
 
   frontend:
     build: ./luxman-frontend
@@ -34,3 +42,4 @@ services:
 
 volumes:
   postgres_data:
+  mongo_data:

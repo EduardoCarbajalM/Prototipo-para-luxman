@@ -1,0 +1,172 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+.mb-app {
+  --bg: #0a0f1e;
+  --panel: rgba(255, 255, 255, 0.05);
+  --borde: rgba(255, 255, 255, 0.1);
+  --texto: #e8edf7;
+  --suave: #93a0b8;
+  --acento: #2a8bb0;
+  --acento-2: #4f7cff;
+  font-family: 'Outfit', system-ui, sans-serif;
+  color: var(--texto);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(79, 124, 255, 0.22), transparent 60%),
+    radial-gradient(700px 500px at -10% 110%, rgba(42, 139, 176, 0.2), transparent 60%),
+    var(--bg);
+}
+
+.mb-app *, .mb-app *::before, .mb-app *::after { box-sizing: border-box; }
+.mb-app button { font-family: inherit; cursor: pointer; }
+
+/* ---------- Header ---------- */
+.mb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 24px;
+  background: rgba(10, 15, 30, 0.7);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--borde);
+  z-index: 2;
+}
+.mb-marca { display: flex; align-items: center; gap: 12px; }
+.mb-marca h1 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.2px; }
+.mb-marca small { color: var(--suave); font-size: 0.78rem; }
+.mb-logo {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center; font-weight: 700; font-size: 1.2rem;
+  background: linear-gradient(135deg, var(--acento), var(--acento-2));
+  box-shadow: 0 6px 20px rgba(79, 124, 255, 0.35);
+}
+.mb-nav { display: flex; gap: 8px; padding: 4px; background: var(--panel); border: 1px solid var(--borde); border-radius: 14px; }
+.mb-nav button {
+  border: 0; background: transparent; color: var(--suave);
+  padding: 9px 18px; border-radius: 10px; font-size: 0.92rem; font-weight: 500;
+  transition: all 0.2s ease;
+}
+.mb-nav button:hover { color: var(--texto); background: rgba(255, 255, 255, 0.06); }
+.mb-nav button.activo {
+  color: #fff;
+  background: linear-gradient(135deg, var(--acento), var(--acento-2));
+  box-shadow: 0 4px 16px rgba(79, 124, 255, 0.35);
+}
+
+/* ---------- Layout ---------- */
+.mb-main { flex: 1; min-height: 0; display: flex; justify-content: center; }
+.mb-seccion { width: 100%; max-width: 980px; display: flex; flex-direction: column; min-height: 0; }
+.mb-seccion[hidden] { display: none; }
+.mb-scroll { overflow-y: auto; }
+
+/* ---------- Mensajes ---------- */
+.mb-mensajes {
+  flex: 1; overflow-y: auto; padding: 24px 20px 12px;
+  display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth;
+}
+.mb-fila { display: flex; gap: 10px; align-items: flex-end; animation: mb-sube 0.35s ease both; }
+.mb-fila-usuario { justify-content: flex-end; }
+.mb-avatar {
+  width: 32px; height: 32px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.9rem;
+  background: linear-gradient(135deg, var(--acento), var(--acento-2));
+}
+.mb-burbuja {
+  max-width: 78%; padding: 12px 16px; border-radius: 18px;
+  line-height: 1.5; font-size: 0.97rem; white-space: pre-wrap; word-break: break-word;
+}
+.mb-burbuja-ia { background: var(--panel); border: 1px solid var(--borde); border-bottom-left-radius: 6px; backdrop-filter: blur(8px); }
+.mb-burbuja-usuario {
+  background: linear-gradient(135deg, #2a6fb0, var(--acento-2));
+  border-bottom-right-radius: 6px; box-shadow: 0 6px 20px rgba(79, 124, 255, 0.25);
+}
+.mb-burbuja-pdf { width: 100%; max-width: 100%; white-space: normal; }
+.mb-texto { margin: 0; }
+.mb-burbuja-pdf .mb-texto { margin-bottom: 12px; }
+.mb-error { border-color: rgba(255, 99, 99, 0.5); background: rgba(255, 99, 99, 0.1); color: #ffb4b4; }
+
+.mb-escribiendo { display: flex; gap: 5px; padding: 6px 2px; }
+.mb-escribiendo span {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--suave);
+  animation: mb-salto 1.1s infinite ease-in-out;
+}
+.mb-escribiendo span:nth-child(2) { animation-delay: 0.15s; }
+.mb-escribiendo span:nth-child(3) { animation-delay: 0.3s; }
+
+/* ---------- Entrada ---------- */
+.mb-entrada {
+  display: flex; gap: 10px; align-items: flex-end;
+  margin: 8px 20px 20px; padding: 10px 10px 10px 18px;
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 22px;
+  backdrop-filter: blur(12px); transition: border-color 0.2s, box-shadow 0.2s;
+}
+.mb-entrada:focus-within { border-color: var(--acento); box-shadow: 0 0 0 3px rgba(42, 139, 176, 0.2); }
+.mb-entrada textarea {
+  flex: 1; resize: none; border: 0; outline: 0; background: transparent;
+  color: var(--texto); font: inherit; font-size: 0.98rem; line-height: 1.5; padding: 6px 0; max-height: 160px;
+}
+.mb-entrada textarea::placeholder { color: var(--suave); }
+.mb-enviar {
+  width: 42px; height: 42px; flex: none; border: 0; border-radius: 50%; color: #fff; font-size: 1.1rem;
+  background: linear-gradient(135deg, var(--acento), var(--acento-2));
+  transition: transform 0.15s, opacity 0.2s, box-shadow 0.2s;
+}
+.mb-enviar:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 6px 18px rgba(79, 124, 255, 0.45); }
+.mb-enviar:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- Visor PDF ---------- */
+.mb-visor { border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; background: rgba(0, 0, 0, 0.25); }
+.mb-visor-barra {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid var(--borde);
+}
+.mb-visor-nombre { font-size: 0.85rem; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+.mb-visor-controles { display: flex; align-items: center; gap: 8px; }
+.mb-zoom-valor { min-width: 48px; text-align: center; font-size: 0.85rem; color: var(--suave); }
+.mb-icono {
+  width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--borde);
+  background: var(--panel); color: var(--texto); font-size: 1.2rem; line-height: 1;
+  transition: all 0.15s;
+}
+.mb-icono:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); transform: translateY(-1px); }
+.mb-icono:disabled { opacity: 0.35; cursor: not-allowed; }
+.mb-descargar {
+  border: 0; border-radius: 10px; padding: 8px 16px; color: #fff; font-size: 0.88rem; font-weight: 500;
+  background: linear-gradient(135deg, var(--acento), var(--acento-2)); transition: all 0.2s;
+}
+.mb-descargar:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79, 124, 255, 0.4); transform: translateY(-1px); }
+.mb-descargar:disabled { opacity: 0.6; cursor: wait; }
+.mb-visor-lienzo { overflow: auto; max-height: 70vh; background: #3b4252; }
+.mb-visor-lienzo iframe { display: block; border: 0; background: #fff; min-width: 100%; }
+
+/* ---------- Historial ---------- */
+.mb-historial { padding: 24px 20px 40px; }
+.mb-historial h2 { margin: 0 0 18px; font-size: 1.3rem; font-weight: 600; }
+.mb-aviso { color: var(--suave); }
+.mb-error-texto { color: #ffb4b4; }
+.mb-item {
+  margin-bottom: 12px; padding: 14px 16px; background: var(--panel);
+  border: 1px solid var(--borde); border-radius: 16px; transition: border-color 0.2s, transform 0.2s;
+}
+.mb-item:hover { border-color: rgba(42, 139, 176, 0.6); transform: translateY(-1px); }
+.mb-item.activo { border-color: var(--acento); }
+.mb-item-cabecera { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.mb-item-cabecera strong { display: block; font-weight: 600; }
+.mb-item-cabecera span { color: var(--suave); font-size: 0.85rem; }
+.mb-item .mb-visor { margin-top: 14px; }
+
+/* ---------- Animaciones y responsive ---------- */
+@keyframes mb-sube { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes mb-salto { 0%, 80%, 100% { transform: translateY(0); opacity: 0.5; } 40% { transform: translateY(-6px); opacity: 1; } }
+
+@media (max-width: 640px) {
+  .mb-header { padding: 10px 14px; }
+  .mb-nav { width: 100%; }
+  .mb-nav button { flex: 1; padding: 9px 8px; font-size: 0.82rem; }
+  .mb-burbuja { max-width: 92%; }
+  .mb-entrada { margin: 8px 10px 12px; }
+}

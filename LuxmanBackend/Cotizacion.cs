@@ -9,7 +9,7 @@ namespace LuxmanErp.Models
         public int idCotizacion { get; set; }
         public int? idCliente { get; set; } // Opcional, para usuarios o visitantes sin cuenta
         public decimal litrosTanque { get; set; }
-        public string tipoAcero { get; set; } // "304" o "316"
+        public string? tipoAcero { get; set; } // "304" o "316"
         public bool tieneAgitacion { get; set; }
 
         // estos dos no los manda el front, los calcula la funcion de PL/Python en la BD
@@ -25,7 +25,7 @@ namespace LuxmanErp.Models
     {
         public int? idCliente { get; set; } // Opcional
         public decimal litrosTanque { get; set; }
-        public string tipoAcero { get; set; }
+        public string? tipoAcero { get; set; }
         public bool tieneAgitacion { get; set; }
     }
 }
