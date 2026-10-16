@@ -170,7 +170,7 @@ function FormularioCotizacion({ alVolver }) {
         const textoError = await respuesta.text();
         throw new Error(
           textoError ||
-            `Error ${respuesta.status}: No se pudo procesar la cotización en el servidor.`
+          `Error ${respuesta.status}: No se pudo procesar la cotización en el servidor.`
         );
       }
 
@@ -318,9 +318,8 @@ function FormularioCotizacion({ alVolver }) {
                           setLitrosTanque(preset.toString());
                           setMensajeError("");
                         }}
-                        className={`btn btn-preset ${
-                          litrosTanque === preset.toString() ? "activo" : ""
-                        }`}
+                        className={`btn btn-preset ${litrosTanque === preset.toString() ? "activo" : ""
+                          }`}
                       >
                         {preset.toLocaleString()} L
                       </button>
@@ -337,9 +336,8 @@ function FormularioCotizacion({ alVolver }) {
                     <div className="col-md-6">
                       <div
                         onClick={() => setTipoAcero("304")}
-                        className={`tarjeta-seleccion h-100 ${
-                          tipoAcero === "304" ? "seleccionada" : ""
-                        }`}
+                        className={`tarjeta-seleccion h-100 ${tipoAcero === "304" ? "seleccionada" : ""
+                          }`}
                       >
                         <div className="d-flex align-items-center justify-content-between mb-1">
                           <span className="fw-bold text-white fs-5">Acero AISI 304</span>
@@ -359,9 +357,8 @@ function FormularioCotizacion({ alVolver }) {
                     <div className="col-md-6">
                       <div
                         onClick={() => setTipoAcero("316")}
-                        className={`tarjeta-seleccion h-100 ${
-                          tipoAcero === "316" ? "seleccionada" : ""
-                        }`}
+                        className={`tarjeta-seleccion h-100 ${tipoAcero === "316" ? "seleccionada" : ""
+                          }`}
                       >
                         <div className="d-flex align-items-center justify-content-between mb-1">
                           <span className="fw-bold text-white fs-5">Acero AISI 316</span>
@@ -384,9 +381,8 @@ function FormularioCotizacion({ alVolver }) {
                 <div className="mb-4">
                   <div
                     onClick={() => setTieneAgitacion(!tieneAgitacion)}
-                    className={`tarjeta-seleccion d-flex align-items-center justify-content-between ${
-                      tieneAgitacion ? "seleccionada" : ""
-                    }`}
+                    className={`tarjeta-seleccion d-flex align-items-center justify-content-between ${tieneAgitacion ? "seleccionada" : ""
+                      }`}
                   >
                     <div>
                       <div className="d-flex align-items-center gap-2 mb-1">
