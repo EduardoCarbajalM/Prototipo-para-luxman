@@ -40,14 +40,87 @@
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7), 0 0 20px rgba(16, 185, 129, 0.25) !important;
 }
 
-/* Div gris simulando la imagen del tanque */
-.espacio-imagen-tanque {
-  background: rgba(255, 255, 255, 0.04);
+/* ==========================================================================
+   Estilos para el Carrusel de Imágenes en Tarjetas
+   ========================================================================== */
+.contenedor-carrusel {
+  position: relative;
+  height: 240px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  height: 200px;
+  overflow: hidden;
 }
 
-/* Insignias con estilo cristal para sectores e información */
+.imagen-carrusel {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.tarjeta-cristal:hover .imagen-carrusel {
+  transform: scale(1.05);
+}
+
+.btn-carrusel {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(10, 16, 28, 0.6);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  z-index: 2;
+  transition: all 0.2s ease;
+}
+
+.btn-carrusel:hover {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.btn-prev {
+  left: 10px;
+}
+
+.btn-next {
+  right: 10px;
+}
+
+.indicadores-carrusel {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.punto-carrusel {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.punto-carrusel.activo {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+}
+
+/* ==========================================================================
+   Insignias y Botones
+   ========================================================================== */
 .insignia-cristal {
   background: rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(8px);
@@ -64,17 +137,6 @@
   transform: translateY(-2px);
 }
 
-/* Botón Verde Esmeralda con resplandor elegante */
-.btn-verde-esmeralda {
-  background-color: #10b981;
-  border-color: #10b981;
-  color: #ffffff;
-  font-weight: 700;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
-}
-
-/* Botón Verde Esmeralda con resplandor elegante */
 .btn-verde-esmeralda {
   background-color: #10b981 !important;
   border-color: #10b981 !important;
@@ -124,7 +186,6 @@
   border-radius: 0 0.75rem 0.75rem 0 !important;
 }
 
-/* Tarjeta selectora para tipo de acero */
 .tarjeta-seleccion {
   background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -147,7 +208,6 @@
   box-shadow: 0 0 20px rgba(16, 185, 129, 0.25) !important;
 }
 
-/* Botones preset de litros */
 .btn-preset {
   background: rgba(255, 255, 255, 0.08) !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
@@ -167,7 +227,6 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
 }
 
-/* Alerta estilizada */
 .alerta-cristal-error {
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.35);
@@ -182,4 +241,3 @@
   color: #6ee7b7;
   border-radius: 0.75rem;
 }
-
