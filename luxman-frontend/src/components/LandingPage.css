@@ -1,43 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
+
 /* ==========================================================================
-   Estilos Dark Mode Premium y Glassmorphism para LandingPage
+   Estilos Modern UI en Modo Claro (60-30-10) para LandingPage y Cotizador
+   60% Dominante: #FFFFFF y #F8FAFC (Slate-50)
+   30% Secundario: Superficies #FFFFFF / #F1F5F9 con bordes #E2E8F0 (Slate-200/80)
+   10% Acento: Azul/Índigo Industrial Corporativo (#1E3A8A / #2563EB)
    ========================================================================== */
 
-/* Fondo global con gradiente azul marino muy oscuro a negro carbón */
 .fondo-oscuro-gradiente {
-  background: linear-gradient(180deg, #090e17 0%, #06090f 50%, #020305 100%);
-  color: #e2e8f0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(900px 450px at 85% 0%, rgba(37, 99, 235, 0.05), transparent 60%),
+    radial-gradient(800px 450px at 10% 90%, rgba(79, 70, 229, 0.04), transparent 60%);
+  color: #0f172a;
   min-height: 100vh;
 }
 
-/* Navbar con efecto Glassmorphism */
+/* Navbar limpia con elevación sutil */
 .navbar-cristal {
-  background: rgba(0, 0, 0, 0.5) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
 }
 
-/* Tarjetas y contenedores con Glassmorphism */
+/* Tarjetas y contenedores elevados (Cero diseño plano) */
 .tarjeta-cristal,
 .card.tarjeta-cristal {
-  background: rgba(10, 16, 28, 0.88) !important;
-  --bs-card-bg: rgba(10, 16, 28, 0.88) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #ffffff !important;
+  --bs-card-bg: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.85) !important;
   border-radius: 1.25rem !important;
-  color: #f1f5f9 !important;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6) !important;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.3s ease,
-              box-shadow 0.3s ease;
+  color: #0f172a !important;
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.04) !important;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease,
+              box-shadow 0.25s ease;
 }
 
-/* Micro-interacción: elevación y brillo sutil al pasar el cursor */
+/* Micro-interacción: elevación suave al pasar el cursor */
 .tarjeta-cristal:hover {
   transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.35) !important;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7), 0 0 20px rgba(16, 185, 129, 0.25) !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.1), 0 4px 10px -4px rgba(15, 23, 42, 0.05) !important;
 }
 
 /* ==========================================================================
@@ -47,8 +54,8 @@
   position: relative;
   height: 240px;
   width: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f1f5f9;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
   overflow: hidden;
 }
 
@@ -60,39 +67,41 @@
 }
 
 .tarjeta-cristal:hover .imagen-carrusel {
-  transform: scale(1.05);
+  transform: scale(1.04);
 }
 
 .btn-carrusel {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(10, 16, 28, 0.6);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
   z-index: 2;
   transition: all 0.2s ease;
 }
 
 .btn-carrusel:hover {
-  background: #10b981;
-  border-color: #10b981;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
 .btn-prev {
-  left: 10px;
+  left: 12px;
 }
 
 .btn-next {
-  right: 10px;
+  right: 12px;
 }
 
 .indicadores-carrusel {
@@ -102,142 +111,168 @@
   transform: translateX(-50%);
   display: flex;
   gap: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  border-radius: 999px;
   z-index: 2;
 }
 
 .punto-carrusel {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.4);
+  background: #94a3b8;
   transition: all 0.3s ease;
 }
 
 .punto-carrusel.activo {
-  background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+  background: #2563eb;
+  width: 16px;
+  border-radius: 999px;
 }
 
 /* ==========================================================================
-   Insignias y Botones
+   Insignias y Botones Corporativos
    ========================================================================== */
 .insignia-cristal {
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #e2e8f0;
-  transition: all 0.25s ease;
+  background: #f1f5f9 !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease;
 }
 
 .insignia-cristal:hover {
-  background: rgba(16, 185, 129, 0.2);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: #ffffff;
-  transform: translateY(-2px);
+  background: rgba(37, 99, 235, 0.08) !important;
+  border-color: rgba(37, 99, 235, 0.3) !important;
+  color: #1d4ed8 !important;
+  transform: translateY(-1px);
 }
 
 .btn-verde-esmeralda {
-  background-color: #10b981 !important;
-  border-color: #10b981 !important;
+  background: linear-gradient(135deg, #1e293b 0%, #2563eb 100%) !important;
+  border: 1px solid rgba(37, 99, 235, 0.3) !important;
   color: #ffffff !important;
-  font-weight: 700 !important;
-  transition: all 0.3s ease !important;
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35) !important;
+  font-weight: 600 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25) !important;
 }
 
-.btn-verde-esmeralda:hover {
-  background-color: #059669 !important;
-  border-color: #059669 !important;
+.btn-verde-esmeralda:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%) !important;
   color: #ffffff !important;
-  transform: translateY(-2px) scale(1.02) !important;
-  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.55) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.35) !important;
+}
+
+.btn-secundario-claro {
+  background: #ffffff !important;
+  border: 1px solid rgba(203, 213, 225, 0.9) !important;
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-secundario-claro:hover:not(:disabled) {
+  background: #f8fafc !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
 }
 
 /* ==========================================================================
-   Estilos para el Cotizador de Tanques
+   Estilos para el Cotizador de Tanques (Modo Claro)
    ========================================================================== */
 .input-cristal {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  color: #ffffff !important;
-  border-radius: 0.75rem !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  border-radius: 0.75rem 0 0 0.75rem !important;
   padding: 0.75rem 1rem !important;
-  font-size: 1.1rem !important;
-  transition: all 0.25s ease !important;
+  font-size: 1.05rem !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  transition: all 0.2s ease !important;
 }
 
 .input-cristal:focus {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: #10b981 !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.35) !important;
+  background: #ffffff !important;
+  border-color: #2563eb !important;
+  color: #0f172a !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
   outline: none !important;
 }
 
 .input-cristal::placeholder {
-  color: rgba(255, 255, 255, 0.45) !important;
+  color: #94a3b8 !important;
 }
 
 .input-group-text-cristal {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  color: #cbd5e1 !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-left: 0 !important;
+  color: #475569 !important;
   border-radius: 0 0.75rem 0.75rem 0 !important;
 }
 
 .tarjeta-seleccion {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 0.85rem !important;
-  padding: 1.15rem !important;
+  background: #f8fafc !important;
+  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+  border-radius: 0.95rem !important;
+  padding: 1.25rem !important;
   cursor: pointer !important;
-  color: #f1f5f9 !important;
-  transition: all 0.25s ease !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .tarjeta-seleccion:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: #ffffff !important;
+  border-color: #94a3b8 !important;
   transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px -3px rgba(15, 23, 42, 0.08) !important;
 }
 
 .tarjeta-seleccion.seleccionada {
-  background: rgba(16, 185, 129, 0.15) !important;
-  border-color: #10b981 !important;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25) !important;
+  background: rgba(37, 99, 235, 0.04) !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15), 0 6px 16px -3px rgba(37, 99, 235, 0.12) !important;
 }
 
 .btn-preset {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  color: #e2e8f0 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
   border-radius: 2rem !important;
   padding: 0.4rem 1rem !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
   transition: all 0.2s ease !important;
 }
 
-.btn-preset:hover, .btn-preset.activo {
-  background: #10b981 !important;
-  border-color: #10b981 !important;
+.btn-preset:hover,
+.btn-preset.activo {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
   color: #ffffff !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25) !important;
 }
 
 .alerta-cristal-error {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
-  border-radius: 0.75rem;
-  padding: 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 0.85rem;
+  padding: 1rem 1.15rem;
 }
 
 .alerta-cristal-exito {
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #6ee7b7;
-  border-radius: 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 0.85rem;
 }

@@ -13,16 +13,13 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<CotizacionService>();
 builder.Services.AddScoped<PdfService>();
 
-<<<<<<< Updated upstream
 // modulo de memebretes (chat -> PDF editable -> historial en MongoDB)
 builder.Services.AddSingleton<MemebreteRepository>();
 builder.Services.AddSingleton<MemebretePdfService>();
 
 // esto es para que el front de React (que corre en otro puerto) pueda
 // pegarle a la API sin que el navegador se queje de CORS
-=======
 // CORRECCIÓN: Configuración de CORS universal para que React conecte sin errores
->>>>>>> Stashed changes
 builder.Services.AddCors(opciones =>
 {
     opciones.AddPolicy("PermitirFrontendReact", politica =>
