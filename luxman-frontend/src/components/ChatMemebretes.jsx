@@ -1,4 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  FileText,
+  ZoomIn,
+  ZoomOut,
+  Download,
+  SendHorizontal,
+  History,
+  Sparkles,
+  Calendar,
+  User,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Loader2,
+  Building2,
+  CheckCircle2,
+  FileCheck2,
+} from 'lucide-react';
 import './ChatMemebretes.css';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5294';
@@ -51,34 +69,55 @@ function VisorPdf({ url, nombre }) {
   return (
     <div className="mb-visor">
       <div className="mb-visor-barra">
-        <span className="mb-visor-nombre" title={nombre}>📄 {nombre}</span>
+        <div className="mb-visor-info">
+          <span className="mb-visor-icono-doc">
+            <FileText size={16} strokeWidth={2} />
+          </span>
+          <span className="mb-visor-nombre" title={nombre}>
+            {nombre}
+          </span>
+          <span className="mb-visor-badge">PDF Editable</span>
+        </div>
+
         <div className="mb-visor-controles">
+          <div className="mb-zoom-grupo" role="group" aria-label="Controles de zoom">
+            <button
+              id="btn-zoom-out"
+              type="button"
+              className="mb-icono"
+              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_PASO).toFixed(2)))}
+              disabled={zoom <= ZOOM_MIN}
+              aria-label="Zoom out"
+              title="Reducir zoom"
+            >
+              <ZoomOut size={16} strokeWidth={2} />
+            </button>
+            <span className="mb-zoom-valor">{Math.round(zoom * 100)}%</span>
+            <button
+              id="btn-zoom-in"
+              type="button"
+              className="mb-icono"
+              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_PASO).toFixed(2)))}
+              disabled={zoom >= ZOOM_MAX}
+              aria-label="Zoom in"
+              title="Aumentar zoom"
+            >
+              <ZoomIn size={16} strokeWidth={2} />
+            </button>
+          </div>
+
           <button
-            id="btn-zoom-out"
-            className="mb-icono"
-            onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_PASO).toFixed(2)))}
-            disabled={zoom <= ZOOM_MIN}
-            aria-label="Zoom out"
-            title="Zoom out"
+            id="btn-descargar"
+            type="button"
+            className="mb-descargar"
+            onClick={descargar}
           >
-            −
-          </button>
-          <span className="mb-zoom-valor">{Math.round(zoom * 100)}%</span>
-          <button
-            id="btn-zoom-in"
-            className="mb-icono"
-            onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_PASO).toFixed(2)))}
-            disabled={zoom >= ZOOM_MAX}
-            aria-label="Zoom in"
-            title="Zoom in"
-          >
-            +
-          </button>
-          <button id="btn-descargar" className="mb-descargar" onClick={descargar}>
-            ⬇ Descargar
+            <Download size={16} strokeWidth={2} />
+            <span>Descargar PDF</span>
           </button>
         </div>
       </div>
+
       <div className="mb-visor-lienzo">
         <iframe
           title={nombre}
@@ -164,14 +203,33 @@ function VistaChat() {
       <div className="mb-mensajes" id="chat-mensajes">
         {mensajes.map((m) => (
           <div key={m.id} className={`mb-fila mb-fila-${m.rol}`}>
-            {m.rol === 'ia' && <div className="mb-avatar">L</div>}
-            <div className={`mb-burbuja mb-burbuja-${m.rol} ${m.tipo === 'error' ? 'mb-error' : ''} ${m.tipo === 'pdf' ? 'mb-burbuja-pdf' : ''}`}>
+            {m.rol === 'ia' && (
+              <div className="mb-avatar" title="Asistente Luxman">
+                <Sparkles size={16} strokeWidth={2} />
+              </div>
+            )}
+            <div
+              className={`mb-burbuja mb-burbuja-${m.rol} ${
+                m.tipo === 'error' ? 'mb-error' : ''
+              } ${m.tipo === 'pdf' ? 'mb-burbuja-pdf' : ''}`}
+            >
               {m.tipo === 'cargando' && (
                 <div className="mb-escribiendo" aria-label="Generando PDF">
-                  <span /><span /><span />
+                  <Loader2 size={16} className="mb-spinner" />
+                  <span className="mb-escribiendo-texto">Generando documento con membrete…</span>
                 </div>
               )}
-              {m.tipo !== 'cargando' && m.texto && <p className="mb-texto">{m.texto}</p>}
+              {m.tipo !== 'cargando' && m.texto && (
+                <div className="mb-texto-contenedor">
+                  {m.tipo === 'error' && (
+                    <AlertCircle size={18} strokeWidth={2} className="mb-icono-estado-error" />
+                  )}
+                  {m.tipo === 'pdf' && (
+                    <CheckCircle2 size={18} strokeWidth={2} className="mb-icono-estado-ok" />
+                  )}
+                  <p className="mb-texto">{m.texto}</p>
+                </div>
+              )}
               {m.tipo === 'pdf' && <VisorPdf url={m.pdf.url} nombre={m.pdf.nombre} />}
             </div>
           </div>
@@ -179,27 +237,52 @@ function VistaChat() {
         <div ref={finRef} />
       </div>
 
-      <form
-        className="mb-entrada"
-        onSubmit={(e) => {
-          e.preventDefault();
-          enviar();
-        }}
-      >
-        <textarea
-          id="chat-input"
-          ref={areaRef}
-          rows={1}
-          value={entrada}
-          onChange={(e) => setEntrada(e.target.value)}
-          onKeyDown={alTeclear}
-          placeholder={ultimoId ? 'Pega un texto nuevo o escribe: "corrige solo el precio a $15,000"' : 'Pega aquí el texto de la cotización…'}
-          disabled={enviando}
-        />
-        <button id="chat-enviar" type="submit" className="mb-enviar" disabled={enviando || !entrada.trim()} aria-label="Enviar">
-          ➤
-        </button>
-      </form>
+      <div className="mb-entrada-wrapper">
+        <form
+          className="mb-entrada"
+          onSubmit={(e) => {
+            e.preventDefault();
+            enviar();
+          }}
+        >
+          <textarea
+            id="chat-input"
+            ref={areaRef}
+            rows={1}
+            value={entrada}
+            onChange={(e) => setEntrada(e.target.value)}
+            onKeyDown={alTeclear}
+            placeholder={
+              ultimoId
+                ? 'Pega un texto nuevo o escribe: "corrige solo el precio a $15,000"'
+                : 'Pega aquí el texto de la cotización…'
+            }
+            disabled={enviando}
+          />
+          <button
+            id="chat-enviar"
+            type="submit"
+            className="mb-enviar"
+            disabled={enviando || !entrada.trim()}
+            aria-label="Enviar"
+            title="Enviar mensaje"
+          >
+            {enviando ? (
+              <Loader2 size={18} strokeWidth={2} className="mb-spinner" />
+            ) : (
+              <SendHorizontal size={18} strokeWidth={2} />
+            )}
+          </button>
+        </form>
+        <div className="mb-entrada-pie">
+          <span>Presiona <strong>Enter</strong> para enviar o <strong>Shift + Enter</strong> para salto de línea</span>
+          {ultimoId && (
+            <span className="mb-estado-doc-activo">
+              <FileCheck2 size={13} strokeWidth={2} /> Documento activo listo para correcciones
+            </span>
+          )}
+        </div>
+      </div>
     </>
   );
 }
@@ -230,7 +313,8 @@ function VistaHistorial() {
     try {
       const url = await cargarPdf(it.id);
       const fecha = new Date(it.fecha).toISOString().slice(0, 10).replaceAll('-', '');
-      const limpio = it.nombreCliente.replace(/[^\p{L}\p{N} ]/gu, '').trim().replaceAll(' ', '_') || 'Cliente';
+      const limpio =
+        it.nombreCliente.replace(/[^\p{L}\p{N} ]/gu, '').trim().replaceAll(' ', '_') || 'Cliente';
       setAbierto({ id: it.id, url, nombre: `Cotizacion_${limpio}_${fecha}.pdf` });
     } catch (e) {
       setError(e.message);
@@ -241,25 +325,94 @@ function VistaHistorial() {
 
   return (
     <div className="mb-historial" id="historial-lista">
-      <h2>Historial de PDF</h2>
-      {error && <p className="mb-aviso mb-error-texto">{error}</p>}
-      {!items && !error && <p className="mb-aviso">Cargando…</p>}
-      {items && items.length === 0 && <p className="mb-aviso">Aún no has generado ningún PDF.</p>}
-
-      {items?.map((it) => (
-        <div key={it.id} className={`mb-item ${abierto?.id === it.id ? 'activo' : ''}`}>
-          <div className="mb-item-cabecera">
-            <div>
-              <strong>{it.nombreCliente}</strong>
-              <span>{formatearFecha(it.fecha)}</span>
-            </div>
-            <button className="mb-descargar" onClick={() => (abierto?.id === it.id ? setAbierto(null) : ver(it))} disabled={cargandoId === it.id}>
-              {cargandoId === it.id ? 'Cargando…' : abierto?.id === it.id ? 'Ocultar' : 'Ver PDF'}
-            </button>
-          </div>
-          {abierto?.id === it.id && <VisorPdf url={abierto.url} nombre={abierto.nombre} />}
+      <div className="mb-historial-encabezado">
+        <div>
+          <h2>Historial de Cotizaciones PDF</h2>
+          <p className="mb-historial-subtitulo">
+            Consulta, visualiza y descarga los documentos oficiales con membrete almacenados en el sistema.
+          </p>
         </div>
-      ))}
+        {items && (
+          <span className="mb-historial-contador">
+            <FileText size={15} strokeWidth={2} />
+            {items.length} {items.length === 1 ? 'documento' : 'documentos'}
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <div className="mb-aviso mb-error-texto">
+          <AlertCircle size={18} strokeWidth={2} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {!items && !error && (
+        <div className="mb-estado-vacio">
+          <Loader2 size={24} strokeWidth={2} className="mb-spinner" />
+          <p className="mb-aviso">Cargando historial de cotizaciones…</p>
+        </div>
+      )}
+
+      {items && items.length === 0 && (
+        <div className="mb-estado-vacio">
+          <div className="mb-estado-vacio-icono">
+            <FileText size={28} strokeWidth={1.75} />
+          </div>
+          <h3>Sin cotizaciones registradas</h3>
+          <p className="mb-aviso">Aún no has generado ningún PDF desde el asistente de cotizaciones.</p>
+        </div>
+      )}
+
+      <div className="mb-lista-items">
+        {items?.map((it) => {
+          const estaAbierto = abierto?.id === it.id;
+          const estaCargando = cargandoId === it.id;
+          return (
+            <div key={it.id} className={`mb-item ${estaAbierto ? 'activo' : ''}`}>
+              <div className="mb-item-cabecera">
+                <div className="mb-item-meta">
+                  <div className="mb-item-avatar">
+                    <User size={18} strokeWidth={2} />
+                  </div>
+                  <div className="mb-item-textos">
+                    <strong>{it.nombreCliente}</strong>
+                    <span className="mb-item-fecha">
+                      <Calendar size={13} strokeWidth={2} />
+                      {formatearFecha(it.fecha)}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className={`mb-btn-accion-historial ${estaAbierto ? 'abierto' : ''}`}
+                  onClick={() => (estaAbierto ? setAbierto(null) : ver(it))}
+                  disabled={estaCargando}
+                >
+                  {estaCargando ? (
+                    <>
+                      <Loader2 size={16} strokeWidth={2} className="mb-spinner" />
+                      <span>Cargando…</span>
+                    </>
+                  ) : estaAbierto ? (
+                    <>
+                      <EyeOff size={16} strokeWidth={2} />
+                      <span>Ocultar PDF</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={16} strokeWidth={2} />
+                      <span>Ver PDF</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              {estaAbierto && <VisorPdf url={abierto.url} nombre={abierto.nombre} />}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -272,18 +425,32 @@ export default function ChatMemebretes() {
     <div className="mb-app">
       <header className="mb-header">
         <div className="mb-marca">
-          <div className="mb-logo">L</div>
+          <div className="mb-logo">
+            <Building2 size={20} strokeWidth={2.2} />
+          </div>
           <div>
             <h1>Luxman · Cotizaciones</h1>
-            <small>Ing. Raúl Romero Juárez</small>
+            <small>Ing. Raúl Romero Juárez · Sistema de Membretes Ejecutivos</small>
           </div>
         </div>
-        <nav className="mb-nav">
-          <button id="btn-generar" className={vista === 'generar' ? 'activo' : ''} onClick={() => setVista('generar')}>
-            1. Generar PDF
+        <nav className="mb-nav" aria-label="Navegación de membretes">
+          <button
+            id="btn-generar"
+            type="button"
+            className={vista === 'generar' ? 'activo' : ''}
+            onClick={() => setVista('generar')}
+          >
+            <Sparkles size={16} strokeWidth={2} />
+            <span>1. Generar PDF</span>
           </button>
-          <button id="btn-historial" className={vista === 'historial' ? 'activo' : ''} onClick={() => setVista('historial')}>
-            2. Historial de PDF
+          <button
+            id="btn-historial"
+            type="button"
+            className={vista === 'historial' ? 'activo' : ''}
+            onClick={() => setVista('historial')}
+          >
+            <History size={16} strokeWidth={2} />
+            <span>2. Historial de PDF</span>
           </button>
         </nav>
       </header>
