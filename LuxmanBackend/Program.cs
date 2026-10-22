@@ -1,26 +1,21 @@
 using LuxmanErp.Services;
 using QuestPDF.Infrastructure;
 
-// QuestPDF necesita que declaremos la licencia antes de generar cualquier PDF
+// activamos la licencia gratuita de questpdf para que nos deje crear los pdfs
 QuestPDF.Settings.License = LicenseType.Community;
 
-var builder = WebApplication.CreateBuilder(args);
+var constructor = WebApplication.CreateBuilder(args);
 
-// registramos los controladores normales de la Web API
-builder.Services.AddControllers();
+constructor.Services.AddControllers();
 
-// aqui registramos nuestros servicios, bien sencillo, sin interfaces
-builder.Services.AddScoped<CotizacionService>();
-builder.Services.AddScoped<PdfService>();
+// registramos los servicios de las cotizaciones y de mongo
+constructor.Services.AddScoped<CotizacionService>();
+constructor.Services.AddScoped<PdfService>();
+constructor.Services.AddSingleton<MemebreteRepository>();
+constructor.Services.AddSingleton<MemebretePdfService>();
 
-// modulo de memebretes (chat -> PDF editable -> historial en MongoDB)
-builder.Services.AddSingleton<MemebreteRepository>();
-builder.Services.AddSingleton<MemebretePdfService>();
-
-// esto es para que el front de React (que corre en otro puerto) pueda
-// pegarle a la API sin que el navegador se queje de CORS
-// CORRECCIÓN: Configuración de CORS universal para que React conecte sin errores
-builder.Services.AddCors(opciones =>
+// damos permiso de cors para que el front en react se pueda conectar sin que marque error
+constructor.Services.AddCors(opciones =>
 {
     opciones.AddPolicy("PermitirFrontendReact", politica =>
     {
@@ -31,12 +26,10 @@ builder.Services.AddCors(opciones =>
     });
 });
 
-var app = builder.Build();
+var aplicacion = constructor.Build();
 
-// El orden es vital: CORS debe ir antes de Authorization y Controllers
-app.UseCors("PermitirFrontendReact");
+aplicacion.UseCors("PermitirFrontendReact");
+aplicacion.UseAuthorization();
+aplicacion.MapControllers();
 
-app.UseAuthorization();
-app.MapControllers();
-
-app.Run();
+aplicacion.Run();

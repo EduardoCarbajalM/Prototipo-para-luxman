@@ -6,45 +6,43 @@ using LuxmanErp.Models;
 
 namespace LuxmanErp.Services
 {
-    // Repositorio de la coleccion NoSQL "MemebretesPDF".
-    // MongoClient es thread-safe, por eso se registra como singleton.
+    // conecta con mongodb para guardar y leer los pdfs que se hacen en el chat
     public class MemebreteRepository
     {
         public const string NombreColeccion = "MemebretesPDF";
+        private readonly IMongoCollection<MemebretePdf> coleccion;
 
-        private readonly IMongoCollection<MemebretePdf> _coleccion;
-
-        public MemebreteRepository(IConfiguration configuration)
+        public MemebreteRepository(IConfiguration configuracion)
         {
-            string cadena = configuration.GetConnectionString("MongoDb") ?? "mongodb://localhost:27017";
-            string baseDatos = configuration["Mongo:Database"] ?? "luxman";
+            string cadena = configuracion.GetConnectionString("MongoDb") ?? "mongodb://localhost:27017";
+            string nombreBd = configuracion["Mongo:Database"] ?? "luxman";
 
-            var cliente = new MongoClient(cadena);
-            _coleccion = cliente.GetDatabase(baseDatos).GetCollection<MemebretePdf>(NombreColeccion);
+            var clienteMongo = new MongoClient(cadena);
+            coleccion = clienteMongo.GetDatabase(nombreBd).GetCollection<MemebretePdf>(NombreColeccion);
         }
 
         public async Task<MemebretePdf> GuardarAsync(MemebretePdf documento)
         {
-            await _coleccion.InsertOneAsync(documento);
+            await coleccion.InsertOneAsync(documento);
             return documento;
         }
 
         public async Task<MemebretePdf?> ObtenerAsync(string id)
         {
-            return await _coleccion.Find(x => x.Id == id).FirstOrDefaultAsync();
+            return await coleccion.Find(doc => doc.Id == id).FirstOrDefaultAsync();
         }
 
-        // Historial: solo Id, Fecha y NombreCliente (no se trae el binario)
+        // saca el historial ordenado del mas reciente al mas viejo
         public async Task<List<MemebreteResumen>> ListarAsync()
         {
-            return await _coleccion
+            return await coleccion
                 .Find(FilterDefinition<MemebretePdf>.Empty)
-                .SortByDescending(x => x.Fecha)
-                .Project(x => new MemebreteResumen
+                .SortByDescending(doc => doc.Fecha)
+                .Project(doc => new MemebreteResumen
                 {
-                    Id = x.Id!,
-                    Fecha = x.Fecha,
-                    NombreCliente = x.NombreCliente
+                    Id = doc.Id!,
+                    Fecha = doc.Fecha,
+                    NombreCliente = doc.NombreCliente
                 })
                 .ToListAsync();
         }

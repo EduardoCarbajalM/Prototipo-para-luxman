@@ -15,14 +15,25 @@ import {
 } from "lucide-react";
 import "./LandingPage.css";
 
-// URL base del backend en C#
-const URL_BASE_API = "http://localhost:5294/api/cotizacion";
+// direccion del backend para guardar las cotizaciones
+const URL_API = "http://localhost:5294/api/cotizacion";
 
-// Precios oficiales de referencia
+// costos por litro y limite del tanque
 const PRECIO_LITRO_304 = 45.5;
 const PRECIO_LITRO_316 = 68.75;
 const COSTO_AGITACION = 8500.0;
-const CAPACIDAD_MAXIMA_LITROS = 1000000; // 1 millón de litros
+const CAPACIDAD_MAXIMA = 1000000;
+
+const ESTILO_TARJETA = {
+  background: "#ffffff",
+  color: "#0f172a",
+  borderRadius: "1.25rem",
+  border: "1px solid rgba(226, 232, 240, 0.9)",
+  boxShadow: "0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04)",
+};
+
+const formatearMoneda = (cantidad) =>
+  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(cantidad || 0);
 
 function FormularioCotizacion({ alVolver }) {
   const [litrosTanque, setLitrosTanque] = useState("");
@@ -36,70 +47,50 @@ function FormularioCotizacion({ alVolver }) {
   const [descargandoPdf, setDescargandoPdf] = useState(false);
   const [errorPdf, setErrorPdf] = useState("");
 
-  // Descarga el PDF oficial (generado con QuestPDF en el backend) de una cotizacion
+  // calculamos el aproximado en vivo mientras el usuario escribe
+  const litrosNumero = Math.max(0, parseFloat(litrosTanque) || 0);
+  const precioPorLitro = tipoAcero === "304" ? PRECIO_LITRO_304 : PRECIO_LITRO_316;
+  const precioBaseEstimado = litrosNumero * precioPorLitro;
+  const totalEstimado = precioBaseEstimado + (tieneAgitacion ? COSTO_AGITACION : 0);
+
+  // pide el pdf al backend y fuerza la descarga en el navegador
   async function descargarPdfCotizacion(idCotizacion) {
     setDescargandoPdf(true);
     setErrorPdf("");
     try {
-      const respuesta = await fetch(`${URL_BASE_API}/${idCotizacion}/pdf`);
+      const respuesta = await fetch(`${URL_API}/${idCotizacion}/pdf`);
       if (!respuesta.ok) {
-        const textoError = await respuesta.text();
-        throw new Error(textoError || `Error ${respuesta.status} al generar el PDF`);
+        const texto = await respuesta.text();
+        throw new Error(texto || `Error ${respuesta.status} al generar el PDF`);
       }
 
-      // tomamos el nombre del archivo que manda el backend, si no, uno por defecto
-      const disposicion = respuesta.headers.get("Content-Disposition") || "";
-      const coincidencia = disposicion.match(/filename="?([^";]+)"?/);
-      const nombreArchivo = coincidencia
-        ? coincidencia[1]
-        : `Cotizacion_Luxman_${idCotizacion}.pdf`;
+      const cabecera = respuesta.headers.get("Content-Disposition") || "";
+      const coincidencia = cabecera.match(/filename="?([^";]+)"?/);
+      const nombreArchivo = coincidencia ? coincidencia[1] : `Cotizacion_Luxman_${idCotizacion}.pdf`;
 
-      const blob = await respuesta.blob();
-      const url = URL.createObjectURL(blob);
+      const archivoBlob = await respuesta.blob();
+      const urlTemporal = URL.createObjectURL(archivoBlob);
       const enlace = document.createElement("a");
-      enlace.href = url;
+      enlace.href = urlTemporal;
       enlace.download = nombreArchivo;
       document.body.appendChild(enlace);
       enlace.click();
       enlace.remove();
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(urlTemporal);
     } catch (error) {
-      console.error("Error al descargar PDF:", error);
       setErrorPdf("La cotización se guardó, pero no se pudo generar el PDF: " + error.message);
     } finally {
       setDescargandoPdf(false);
     }
   }
 
-  // Formateador de moneda en pesos mexicanos (MXN)
-  const formatearMoneda = (cantidad) => {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-    }).format(cantidad || 0);
-  };
-
-  // Cálculo de estimación local en tiempo real con validación estricta de no negativos
-  const litrosNum = Math.max(0, parseFloat(litrosTanque) || 0);
-  const precioUnitarioEstimado =
-    tipoAcero === "304" ? PRECIO_LITRO_304 : PRECIO_LITRO_316;
-  const precioBaseEstimado = litrosNum * precioUnitarioEstimado;
-  const extraAgitacionEstimado = tieneAgitacion ? COSTO_AGITACION : 0;
-  const totalEstimado = precioBaseEstimado + extraAgitacionEstimado;
-
-  // Manejo de teclado para bloquear activamente signos negativos y caracteres no numéricos
-  function manejarTecladoLitros(evento) {
-    if (
-      evento.key === "-" ||
-      evento.key === "+" ||
-      evento.key === "e" ||
-      evento.key === "E"
-    ) {
+  // evita que metan signos raros o negativos en el input
+  function bloquearTeclasInvalidas(evento) {
+    if (["-", "+", "e", "E"].includes(evento.key)) {
       evento.preventDefault();
     }
   }
 
-  // Manejo de cambio de valor para bloquear negativos pegados o ingresados
   function manejarCambioLitros(evento) {
     const valor = evento.target.value;
     if (valor === "") {
@@ -109,16 +100,13 @@ function FormularioCotizacion({ alVolver }) {
     }
 
     const numero = parseFloat(valor);
-    // Validación preventiva en tiempo real
     if (numero < 0) {
       setMensajeError("No se permiten capacidades negativas.");
       return;
     }
 
-    if (numero > CAPACIDAD_MAXIMA_LITROS) {
-      setMensajeError(
-        `La capacidad máxima para cotización automática es de ${CAPACIDAD_MAXIMA_LITROS.toLocaleString()} L.`
-      );
+    if (numero > CAPACIDAD_MAXIMA) {
+      setMensajeError(`La capacidad máxima para cotización automática es de ${CAPACIDAD_MAXIMA.toLocaleString()} L.`);
     } else {
       setMensajeError("");
     }
@@ -126,33 +114,25 @@ function FormularioCotizacion({ alVolver }) {
     setLitrosTanque(valor);
   }
 
-  // Validación y envío del formulario
+  // valida los datos y los manda por post al servidor
   async function manejarEnvioFormulario(evento) {
     evento.preventDefault();
 
-    // 1. Validación de campo vacío o no numérico
-    if (!litrosTanque || litrosTanque.trim() === "" || isNaN(litrosNum)) {
+    if (!litrosTanque || litrosTanque.trim() === "" || isNaN(litrosNumero)) {
       setMensajeError("Por favor ingresa la capacidad del tanque en litros.");
       return;
     }
 
-    // 2. Validación de números negativos o cero
-    if (litrosNum <= 0) {
-      setMensajeError(
-        "La capacidad del tanque debe ser un número mayor a cero (no se permiten valores negativos ni cero)."
-      );
+    if (litrosNumero <= 0) {
+      setMensajeError("La capacidad del tanque debe ser un número mayor a cero (no se permiten valores negativos ni cero).");
       return;
     }
 
-    // 3. Validación de límite máximo
-    if (litrosNum > CAPACIDAD_MAXIMA_LITROS) {
-      setMensajeError(
-        `Para proyectos mayores a ${CAPACIDAD_MAXIMA_LITROS.toLocaleString()} L, se requiere diseño especial con el departamento de ingeniería.`
-      );
+    if (litrosNumero > CAPACIDAD_MAXIMA) {
+      setMensajeError(`Para proyectos mayores a ${CAPACIDAD_MAXIMA.toLocaleString()} L, se requiere diseño especial con el departamento de ingeniería.`);
       return;
     }
 
-    // 4. Validación de tipo de acero
     if (tipoAcero !== "304" && tipoAcero !== "316") {
       setMensajeError("Selecciona un tipo de acero válido (AISI 304 o AISI 316).");
       return;
@@ -163,46 +143,32 @@ function FormularioCotizacion({ alVolver }) {
     setCotizacionCreada(null);
     setUsandoEstimadoOffline(false);
 
-    // DTO que se envía al backend: no requiere idCliente
-    const datosParaEnviar = {
-      litrosTanque: litrosNum,
-      tipoAcero: tipoAcero,
-      tieneAgitacion: tieneAgitacion,
-    };
-
     try {
-      const respuesta = await fetch(URL_BASE_API, {
+      const respuesta = await fetch(URL_API, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(datosParaEnviar),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          litrosTanque: litrosNumero,
+          tipoAcero,
+          tieneAgitacion,
+        }),
       });
 
       if (!respuesta.ok) {
         const textoError = await respuesta.text();
-        throw new Error(
-          textoError ||
-          `Error ${respuesta.status}: No se pudo procesar la cotización en el servidor.`
-        );
+        throw new Error(textoError || `Error ${respuesta.status}: No se pudo procesar la cotización.`);
       }
 
-      const datosRespuesta = await respuesta.json();
-      setCotizacionCreada(datosRespuesta);
-
-      // en cuanto se guarda la cotizacion, descargamos el PDF oficial
-      await descargarPdfCotizacion(datosRespuesta.idCotizacion);
+      const datosGuardados = await respuesta.json();
+      setCotizacionCreada(datosGuardados);
+      await descargarPdfCotizacion(datosGuardados.idCotizacion);
     } catch (error) {
-      console.error("Error al crear cotización:", error);
-
       if (
         error.name === "TypeError" ||
         error.message.includes("Failed to fetch") ||
         error.message.includes("NetworkError")
       ) {
-        setMensajeError(
-          "No se pudo conectar con el backend en http://localhost:5294. Verifica que el contenedor del backend esté corriendo."
-        );
+        setMensajeError("No se pudo conectar con el backend en http://localhost:5294. Verifica que el contenedor del backend esté corriendo.");
       } else {
         setMensajeError(error.message);
       }
@@ -211,13 +177,13 @@ function FormularioCotizacion({ alVolver }) {
     }
   }
 
-  // Activa la cotización en modo offline utilizando la misma lógica del servidor
+  // por si el servidor esta apagado mostramos el calculo local
   function activarEstimadoOffline() {
     setCotizacionCreada({
       idCotizacion: "DEMO-ESTIMADO",
-      litrosTanque: litrosNum,
-      tipoAcero: tipoAcero,
-      tieneAgitacion: tieneAgitacion,
+      litrosTanque: litrosNumero,
+      tipoAcero,
+      tieneAgitacion,
       precioBase: precioBaseEstimado,
       precioFinal: totalEstimado,
     });
@@ -233,18 +199,8 @@ function FormularioCotizacion({ alVolver }) {
     setMensajeError("");
   }
 
-  // Estilo garantizado para tarjeta elevada en Modo Claro (60-30-10)
-  const estiloTarjetaElevada = {
-    background: "#ffffff",
-    color: "#0f172a",
-    borderRadius: "1.25rem",
-    border: "1px solid rgba(226, 232, 240, 0.9)",
-    boxShadow: "0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04)",
-  };
-
   return (
     <div className="fondo-oscuro-gradiente min-vh-100 d-flex flex-column">
-      {/* Barra de navegación superior limpia */}
       <nav className="navbar sticky-top navbar-cristal py-3">
         <div className="container">
           <span className="navbar-brand fw-bold fs-4 d-flex align-items-center text-dark m-0 gap-2">
@@ -276,7 +232,6 @@ function FormularioCotizacion({ alVolver }) {
         </div>
       </nav>
 
-      {/* Contenido principal */}
       <div className="container py-5 flex-grow-1">
         <motion.div
           initial={{ opacity: 0, y: 25 }}
@@ -285,7 +240,6 @@ function FormularioCotizacion({ alVolver }) {
           className="mx-auto"
           style={{ maxWidth: "800px" }}
         >
-          {/* Encabezado */}
           <div className="text-center mb-4">
             <span className="badge insignia-cristal text-uppercase px-3 py-2 mb-2 rounded-pill small d-inline-flex align-items-center gap-2">
               <Calculator size={14} strokeWidth={2} className="text-primary" />
@@ -300,11 +254,9 @@ function FormularioCotizacion({ alVolver }) {
             </p>
           </div>
 
-          {/* Formulario Principal */}
           {!cotizacionCreada ? (
-            <div className="tarjeta-cristal p-4 p-md-5" style={estiloTarjetaElevada}>
+            <div className="tarjeta-cristal p-4 p-md-5" style={ESTILO_TARJETA}>
               <form onSubmit={manejarEnvioFormulario}>
-                {/* 1. Capacidad en Litros */}
                 <div className="mb-4">
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <label className="form-label text-dark fw-bold mb-0 fs-6">
@@ -317,11 +269,11 @@ function FormularioCotizacion({ alVolver }) {
                     <input
                       type="number"
                       min="1"
-                      max={CAPACIDAD_MAXIMA_LITROS}
+                      max={CAPACIDAD_MAXIMA}
                       step="any"
                       className="form-control input-cristal"
                       value={litrosTanque}
-                      onKeyDown={manejarTecladoLitros}
+                      onKeyDown={bloquearTeclasInvalidas}
                       onChange={manejarCambioLitros}
                       placeholder="Ej. 1000"
                       required
@@ -331,27 +283,25 @@ function FormularioCotizacion({ alVolver }) {
                     </span>
                   </div>
 
-                  {/* Botones de selección rápida */}
                   <div className="d-flex flex-wrap gap-2 pt-1">
-                    {[500, 1000, 2500, 5000, 10000].map((preset) => (
+                    {[500, 1000, 2500, 5000, 10000].map((opcionLitros) => (
                       <button
                         type="button"
-                        key={preset}
+                        key={opcionLitros}
                         onClick={() => {
-                          setLitrosTanque(preset.toString());
+                          setLitrosTanque(opcionLitros.toString());
                           setMensajeError("");
                         }}
                         className={`btn btn-preset ${
-                          litrosTanque === preset.toString() ? "activo" : ""
+                          litrosTanque === opcionLitros.toString() ? "activo" : ""
                         }`}
                       >
-                        {preset.toLocaleString()} L
+                        {opcionLitros.toLocaleString()} L
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* 2. Selección de Grado de Acero */}
                 <div className="mb-4">
                   <label className="form-label text-dark fw-bold mb-2 fs-6 d-flex align-items-center gap-2">
                     <ShieldCheck size={18} strokeWidth={2} className="text-primary" />
@@ -404,7 +354,6 @@ function FormularioCotizacion({ alVolver }) {
                   </div>
                 </div>
 
-                {/* 3. Sistema de Agitación Mecánica */}
                 <div className="mb-4">
                   <div
                     onClick={() => setTieneAgitacion(!tieneAgitacion)}
@@ -433,15 +382,14 @@ function FormularioCotizacion({ alVolver }) {
                         type="checkbox"
                         role="switch"
                         checked={tieneAgitacion}
-                        onChange={(e) => setTieneAgitacion(e.target.checked)}
-                        onClick={(e) => e.stopPropagation()}
+                        onChange={(evento) => setTieneAgitacion(evento.target.checked)}
+                        onClick={(evento) => evento.stopPropagation()}
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Desglose Preliminar en Tiempo Real */}
-                {litrosNum > 0 && (
+                {litrosNumero > 0 && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
@@ -453,7 +401,7 @@ function FormularioCotizacion({ alVolver }) {
                   >
                     <div className="d-flex justify-content-between align-items-center small text-secondary mb-1">
                       <span>
-                        Cálculo base ({litrosNum.toLocaleString()} L × ${precioUnitarioEstimado}/L):
+                        Cálculo base ({litrosNumero.toLocaleString()} L × ${precioPorLitro}/L):
                       </span>
                       <span className="fw-semibold text-dark">
                         {formatearMoneda(precioBaseEstimado)}
@@ -475,7 +423,6 @@ function FormularioCotizacion({ alVolver }) {
                   </motion.div>
                 )}
 
-                {/* Alerta de Mensaje de Error */}
                 {mensajeError && (
                   <div className="alerta-cristal-error mb-4">
                     <div className="d-flex align-items-start gap-2">
@@ -484,8 +431,7 @@ function FormularioCotizacion({ alVolver }) {
                         <strong className="d-block mb-1">Aviso:</strong>
                         <span className="small">{mensajeError}</span>
 
-                        {/* Botón para ver el cálculo offline si el backend está caído */}
-                        {litrosNum > 0 &&
+                        {litrosNumero > 0 &&
                           mensajeError.includes("http://localhost:5294") && (
                             <div className="mt-3">
                               <button
@@ -503,7 +449,6 @@ function FormularioCotizacion({ alVolver }) {
                   </div>
                 )}
 
-                {/* Botón de Envío */}
                 <div className="d-grid gap-2">
                   <button
                     type="submit"
@@ -526,13 +471,12 @@ function FormularioCotizacion({ alVolver }) {
               </form>
             </div>
           ) : (
-            /* Vista de Resultado de Cotización Generada */
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4 }}
               className="tarjeta-cristal p-4 p-md-5"
-              style={estiloTarjetaElevada}
+              style={ESTILO_TARJETA}
             >
               <div className="text-center mb-4">
                 <div
@@ -560,7 +504,6 @@ function FormularioCotizacion({ alVolver }) {
                 </p>
               </div>
 
-              {/* Ficha técnica de especificaciones */}
               <div
                 className="p-4 rounded-4 mb-4"
                 style={{
@@ -618,7 +561,6 @@ function FormularioCotizacion({ alVolver }) {
                 </div>
               )}
 
-              {/* Botones de acción */}
               <div className="d-flex flex-column flex-sm-row gap-3">
                 {cotizacionCreada.idCotizacion !== "DEMO-ESTIMADO" && (
                   <button

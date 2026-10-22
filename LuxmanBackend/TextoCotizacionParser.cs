@@ -7,137 +7,137 @@ using System.Text.RegularExpressions;
 
 namespace LuxmanErp.Services
 {
-    // Interpreta el texto libre del CEO: extrae el nombre del cliente
-    // y entiende instrucciones de correccion ("corrige solo el precio a X").
-    // Es deterministico (reglas), asi no depende de una API externa.
+    // clase para separar el texto que escribe el usuario en el chat y aplicar correcciones
     public static class TextoCotizacionParser
     {
         public record Resultado(string NombreCliente, List<string> Encabezado, List<string> Cuerpo);
-
         public record Correccion(bool Aplicada, string TextoNuevo, string Mensaje);
 
-        private static readonly Regex RxAtencion =
+        private static readonly Regex ExpresionAtencion =
             new(@"^\s*(atenci[oó]n|attn?\.?)\s*:", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        private static readonly Regex RxPrefijoCliente =
+        private static readonly Regex ExpresionPrefijoCliente =
             new(@"^\s*(cliente|empresa|raz[oó]n social)\s*:\s*", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        private static readonly Regex RxNoEsNombre =
+        private static readonly Regex ExpresionNoEsNombre =
             new(@"^\s*([-•*·]|\d|\$)", RegexOptions.Compiled);
 
-        private static readonly Regex RxCorreccion = new(
+        private static readonly Regex ExpresionCorreccion = new(
             @"^\s*(?:por favor[,\s]+)?(?:corrig[eé]|corregir|cambia|modifica|actualiza)\s+(?:solo\s+|solamente\s+|únicamente\s+|unicamente\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(?<campo>.+?)\s+(?:a|por|con)\s+(?<valor>.+?)\s*$",
             RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
 
-        private static readonly Regex RxNumero =
+        private static readonly Regex ExpresionNumero =
             new(@"\$?\s?\d[\d,]*(?:\.\d+)?", RegexOptions.Compiled);
 
+        // separa el nombre del cliente, la linea de atencion y el resto del cuerpo
         public static Resultado Parsear(string texto)
         {
             var lineas = (texto ?? "")
                 .Replace("\r\n", "\n").Replace('\r', '\n')
                 .Split('\n')
-                .Select(l => l.TrimEnd())
+                .Select(linea => linea.TrimEnd())
                 .ToList();
 
-            while (lineas.Count > 0 && string.IsNullOrWhiteSpace(lineas[0])) lineas.RemoveAt(0);
+            while (lineas.Count > 0 && string.IsNullOrWhiteSpace(lineas[0]))
+                lineas.RemoveAt(0);
 
-            string nombre = "Cliente sin nombre";
-            if (lineas.Count > 0 && !RxNoEsNombre.IsMatch(lineas[0]))
+            string nombreCliente = "Cliente sin nombre";
+            if (lineas.Count > 0 && !ExpresionNoEsNombre.IsMatch(lineas[0]))
             {
-                nombre = RxPrefijoCliente.Replace(lineas[0].Trim(), "").Trim();
-                if (nombre.Length == 0) nombre = "Cliente sin nombre";
+                nombreCliente = ExpresionPrefijoCliente.Replace(lineas[0].Trim(), "").Trim();
+                if (nombreCliente.Length == 0) nombreCliente = "Cliente sin nombre";
                 lineas.RemoveAt(0);
             }
 
-            // la linea(s) de "Atencion:" van pegadas al nombre, antes de la fecha
             var encabezado = new List<string>();
-            while (lineas.Count > 0 && RxAtencion.IsMatch(lineas[0]))
+            while (lineas.Count > 0 && ExpresionAtencion.IsMatch(lineas[0]))
             {
                 encabezado.Add(lineas[0].Trim());
                 lineas.RemoveAt(0);
             }
 
-            while (lineas.Count > 0 && string.IsNullOrWhiteSpace(lineas[0])) lineas.RemoveAt(0);
-            while (lineas.Count > 0 && string.IsNullOrWhiteSpace(lineas[^1])) lineas.RemoveAt(lineas.Count - 1);
+            while (lineas.Count > 0 && string.IsNullOrWhiteSpace(lineas[0]))
+                lineas.RemoveAt(0);
+            while (lineas.Count > 0 && string.IsNullOrWhiteSpace(lineas[^1]))
+                lineas.RemoveAt(lineas.Count - 1);
 
-            return new Resultado(nombre, encabezado, lineas);
+            return new Resultado(nombreCliente, encabezado, lineas);
         }
 
-        public static bool EsCorreccion(string mensaje)
-        {
-            return RxCorreccion.IsMatch(mensaje ?? "");
-        }
+        public static bool EsCorreccion(string mensaje) => ExpresionCorreccion.IsMatch(mensaje ?? "");
 
-        // Cambia unicamente el fragmento pedido; el resto del texto queda identico.
+        // busca el campo que pidio cambiar el usuario y reemplaza su valor
         public static Correccion AplicarCorreccion(string textoActual, string instruccion)
         {
-            var m = RxCorreccion.Match(instruccion ?? "");
-            if (!m.Success)
+            var coincidencia = ExpresionCorreccion.Match(instruccion ?? "");
+            if (!coincidencia.Success)
                 return new Correccion(false, textoActual, "No entendí la corrección. Ejemplo: \"corrige solo el precio a $15,000\".");
 
-            string campo = m.Groups["campo"].Value.Trim().TrimEnd(':');
-            string valor = m.Groups["valor"].Value.Trim().TrimEnd('.');
-            string campoNorm = Normalizar(campo);
+            string campoBuscado = coincidencia.Groups["campo"].Value.Trim().TrimEnd(':');
+            string nuevoValor = coincidencia.Groups["valor"].Value.Trim().TrimEnd('.');
+            string campoNormalizado = QuitarAcentos(campoBuscado);
 
             var lineas = textoActual.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').ToList();
+            var indicesEncontrados = new List<int>();
 
-            var coincidencias = new List<int>();
             for (int i = 0; i < lineas.Count; i++)
             {
-                if (Normalizar(lineas[i]).Contains(campoNorm)) coincidencias.Add(i);
+                if (QuitarAcentos(lineas[i]).Contains(campoNormalizado))
+                    indicesEncontrados.Add(i);
             }
 
-            if (coincidencias.Count == 0)
-                return new Correccion(false, textoActual, $"No encontré \"{campo}\" en el documento.");
+            if (indicesEncontrados.Count == 0)
+                return new Correccion(false, textoActual, $"No encontré \"{campoBuscado}\" en el documento.");
 
-            foreach (int i in coincidencias)
+            foreach (int i in indicesEncontrados)
             {
-                string? nueva = ReemplazarEnLinea(lineas[i], valor);
-                if (nueva == null) continue;
+                string? lineaModificada = CambiarValorEnLinea(lineas[i], nuevoValor);
+                if (lineaModificada == null) continue;
 
-                lineas[i] = nueva;
-                string extra = coincidencias.Count > 1
-                    ? $" (hay {coincidencias.Count} coincidencias; se corrigió la primera)"
+                lineas[i] = lineaModificada;
+                string notaExtra = indicesEncontrados.Count > 1
+                    ? $" (hay {indicesEncontrados.Count} coincidencias; se corrigió la primera)"
                     : "";
-                return new Correccion(true, string.Join("\n", lineas), $"Listo, corregí \"{campo}\" a {valor}{extra}.");
+                return new Correccion(true, string.Join("\n", lineas), $"Listo, corregí \"{campoBuscado}\" a {nuevoValor}{notaExtra}.");
             }
 
-            return new Correccion(false, textoActual, $"Encontré \"{campo}\" pero no tiene un valor que pueda reemplazar.");
+            return new Correccion(false, textoActual, $"Encontré \"{campoBuscado}\" pero no tiene un valor que pueda reemplazar.");
         }
 
-        private static string? ReemplazarEnLinea(string linea, string valor)
+        private static string? CambiarValorEnLinea(string linea, string nuevoValor)
         {
-            var num = RxNumero.Match(linea);
-            if (num.Success)
+            var numeroActual = ExpresionNumero.Match(linea);
+            if (numeroActual.Success)
             {
-                string nuevo = valor;
-                if (decimal.TryParse(valor.Replace("$", "").Replace(",", "").Trim(),
+                string valorFormateado = nuevoValor;
+                if (decimal.TryParse(nuevoValor.Replace("$", "").Replace(",", "").Trim(),
                         NumberStyles.Number, CultureInfo.InvariantCulture, out decimal cantidad))
                 {
-                    bool conSimbolo = num.Value.TrimStart().StartsWith("$") || valor.Contains('$');
-                    bool conDecimales = num.Value.Contains('.') || valor.Contains('.');
-                    nuevo = (conSimbolo ? "$" : "") +
-                            cantidad.ToString(conDecimales ? "N2" : "N0", CultureInfo.InvariantCulture);
+                    bool llevaSignoPesos = numeroActual.Value.TrimStart().StartsWith("$") || nuevoValor.Contains('$');
+                    bool llevaDecimales = numeroActual.Value.Contains('.') || nuevoValor.Contains('.');
+                    valorFormateado = (llevaSignoPesos ? "$" : "") +
+                        cantidad.ToString(llevaDecimales ? "N2" : "N0", CultureInfo.InvariantCulture);
                 }
-                return linea.Substring(0, num.Index) + nuevo + linea.Substring(num.Index + num.Length);
+                return linea.Substring(0, numeroActual.Index) + valorFormateado + linea.Substring(numeroActual.Index + numeroActual.Length);
             }
 
-            int dosPuntos = linea.IndexOf(':');
-            if (dosPuntos >= 0) return linea.Substring(0, dosPuntos + 1) + " " + valor;
+            int posicionDosPuntos = linea.IndexOf(':');
+            if (posicionDosPuntos >= 0)
+                return linea.Substring(0, posicionDosPuntos + 1) + " " + nuevoValor;
 
             return null;
         }
 
-        private static string Normalizar(string s)
+        // quita tildes y pasa todo a minusculas para comparar sin fallar por acentos
+        private static string QuitarAcentos(string texto)
         {
-            var sb = new StringBuilder();
-            foreach (char c in s.Normalize(NormalizationForm.FormD))
+            var resultado = new StringBuilder();
+            foreach (char caracter in texto.Normalize(NormalizationForm.FormD))
             {
-                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                    sb.Append(char.ToLowerInvariant(c));
+                if (CharUnicodeInfo.GetUnicodeCategory(caracter) != UnicodeCategory.NonSpacingMark)
+                    resultado.Append(char.ToLowerInvariant(caracter));
             }
-            return sb.ToString();
+            return resultado.ToString();
         }
     }
 }

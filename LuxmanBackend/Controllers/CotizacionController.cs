@@ -9,120 +9,63 @@ namespace LuxmanErp.Controllers
     [Route("api/[controller]")]
     public class CotizacionController : ControllerBase
     {
-        // metemos los servicios por el constructor, inyeccion de dependencias
-        // basica, nada de interfaces de mas porque solo tenemos una implementacion
-        private readonly CotizacionService _cotizacionService;
-        private readonly PdfService _pdfService;
+        private readonly CotizacionService servicioCotizacion;
+        private readonly PdfService servicioPdf;
 
-        public CotizacionController(CotizacionService cotizacionService, PdfService pdfService)
+        public CotizacionController(CotizacionService servicioCotizacion, PdfService servicioPdf)
         {
-            _cotizacionService = cotizacionService;
-            _pdfService = pdfService;
+            this.servicioCotizacion = servicioCotizacion;
+            this.servicioPdf = servicioPdf;
         }
 
-        // ===============================================================
-        // POST api/cotizacion
-        // Este es el endpoint principal, recibe los datos del formulario
-        // de React y crea la cotizacion en la base de datos
-        // ===============================================================
+        // endpoint para guardar la cotizacion que mandan desde react
         [HttpPost]
-        public IActionResult CrearCotizacion([FromBody] CotizacionRequestDTO datosCotizacion)
+        public IActionResult CrearCotizacion([FromBody] CotizacionRequestDTO datos)
         {
-            // primero validamos que no venga vacio o con datos raros
-            if (datosCotizacion == null)
-            {
-                return BadRequest("No llegaron datos de la cotizacion");
-            }
+            if (datos == null)
+                return BadRequest("No llegaron los datos de la cotización.");
 
-            if (datosCotizacion.litrosTanque <= 0)
-            {
-                return BadRequest("Los litros del tanque tienen que ser mayor a cero, revisa el formulario");
-            }
+            if (datos.litrosTanque <= 0)
+                return BadRequest("Los litros del tanque tienen que ser mayores a cero.");
 
-            // switch basico nada mas para checar que el tipo de acero venga bien
-            // antes de mandarlo a la base de datos
-            bool tipoAceroValido = false;
-            switch (datosCotizacion.tipoAcero)
-            {
-                case "304":
-                    tipoAceroValido = true;
-                    break;
-                case "316":
-                    tipoAceroValido = true;
-                    break;
-                default:
-                    tipoAceroValido = false;
-                    break;
-            }
+            if (datos.tipoAcero != "304" && datos.tipoAcero != "316")
+                return BadRequest("El tipo de acero solo puede ser 304 o 316.");
 
-            if (tipoAceroValido == false)
-            {
-                return BadRequest("El tipo de acero solo puede ser 304 o 316");
-            }
-
-            // aqui si ya mandamos a crear la cotizacion, la funcion de PL/Python
-            // en la base de datos hace la chamba de calcular el precio
-            Cotizacion cotizacionNueva;
             try
             {
-                cotizacionNueva = _cotizacionService.CrearCotizacion(datosCotizacion);
+                var nueva = servicioCotizacion.CrearCotizacion(datos);
+                return Ok(nueva);
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                // aqui atrapamos cualquier error que truene de la base de datos
-                // TODO: mejorar este manejo de errores, esta muy basico todavia
-                return StatusCode(500, "Error al crear la cotizacion: " + ex.Message);
+                return StatusCode(500, "Error al crear la cotización: " + error.Message);
             }
-
-            return Ok(cotizacionNueva);
         }
 
-        // ===============================================================
-        // GET api/cotizacion/cliente/5
-        // Trae todas las cotizaciones de un cliente en especifico
-        // ===============================================================
+        // obtiene el historial de cotizaciones de un cliente
         [HttpGet("cliente/{idCliente}")]
         public IActionResult ObtenerPorCliente(int idCliente)
         {
-            var listaCotizaciones = _cotizacionService.ObtenerCotizacionesPorCliente(idCliente);
-            return Ok(listaCotizaciones);
+            return Ok(servicioCotizacion.ObtenerCotizacionesPorCliente(idCliente));
         }
 
-        // ===============================================================
-        // GET api/cotizacion/5/pdf
-        // Genera y descarga el PDF oficial de una cotizacion guardada en la BD
-        // ===============================================================
+        // genera y regresa el archivo pdf de la cotizacion
         [HttpGet("{idCotizacion}/pdf")]
         public IActionResult DescargarPdf(int idCotizacion)
         {
-            Cotizacion? cotizacion;
-            string nombreCliente;
             try
             {
-                (cotizacion, nombreCliente) = _cotizacionService.ObtenerCotizacionPorId(idCotizacion);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, "Error al consultar la cotizacion: " + ex.Message);
-            }
+                var (cotizacion, nombreCliente) = servicioCotizacion.ObtenerCotizacionPorId(idCotizacion);
+                if (cotizacion == null)
+                    return NotFound($"No existe la cotización #{idCotizacion}");
 
-            if (cotizacion == null)
-            {
-                return NotFound($"No existe la cotizacion #{idCotizacion}");
+                byte[] archivoPdf = servicioPdf.GenerarPdfCotizacion(cotizacion, nombreCliente);
+                return File(archivoPdf, "application/pdf", $"Cotizacion_Luxman_COT-{idCotizacion:D5}.pdf");
             }
-
-            byte[] pdfBytes;
-            try
+            catch (Exception error)
             {
-                pdfBytes = _pdfService.GenerarPdfCotizacion(cotizacion, nombreCliente);
+                return StatusCode(500, "Error con el PDF de la cotización: " + error.Message);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, "Error al generar el PDF: " + ex.Message);
-            }
-
-            // regresamos el pdf como archivo descargable
-            return File(pdfBytes, "application/pdf", $"Cotizacion_Luxman_COT-{idCotizacion:D5}.pdf");
         }
     }
 }

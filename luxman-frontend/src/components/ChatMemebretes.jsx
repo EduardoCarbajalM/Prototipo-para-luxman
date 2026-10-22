@@ -19,51 +19,51 @@ import {
 } from 'lucide-react';
 import './ChatMemebretes.css';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5294';
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 2.5;
-const ZOOM_PASO = 0.25;
-const ALTO_BASE = 620;
+const URL_SERVIDOR = import.meta.env.VITE_API_URL || 'http://localhost:5294';
+const ZOOM_MINIMO = 0.5;
+const ZOOM_MAXIMO = 2.5;
+const PASO_ZOOM = 0.25;
+const ALTO_VISOR = 620;
 
-const MENSAJE_INICIAL = {
+const MENSAJE_BIENVENIDA = {
   id: 'ia-inicial',
   rol: 'ia',
   tipo: 'texto',
   texto: 'Por favor inserta tu texto completo aquí',
 };
 
-// Descarga el PDF desde la API y lo convierte en una URL local para el visor
-async function cargarPdf(id) {
-  const r = await fetch(`${API}/api/memebretes/${id}/pdf`);
-  if (!r.ok) throw new Error('No se pudo cargar el PDF.');
-  return URL.createObjectURL(await r.blob());
+// pide los bytes del pdf al backend y crea una url temporal para mostrarlo en el iframe
+async function obtenerUrlPdf(idDocumento) {
+  const respuesta = await fetch(`${URL_SERVIDOR}/api/memebretes/${idDocumento}/pdf`);
+  if (!respuesta.ok) throw new Error('No se pudo cargar el PDF.');
+  return URL.createObjectURL(await respuesta.blob());
 }
 
-async function leerError(r) {
-  const t = await r.text();
+async function extraerMensajeError(respuesta) {
+  const texto = await respuesta.text();
   try {
-    const j = JSON.parse(t);
-    return typeof j === 'string' ? j : j.title || j.mensaje || t;
+    const datosJson = JSON.parse(texto);
+    return typeof datosJson === 'string' ? datosJson : datosJson.title || datosJson.mensaje || texto;
   } catch {
-    return t || `Error ${r.status}`;
+    return texto || `Error ${respuesta.status}`;
   }
 }
 
-function formatearFecha(iso) {
-  return new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+function formatearFechaHora(fechaIso) {
+  return new Date(fechaIso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-/* ---------------- Visor PDF con zoom y descarga ---------------- */
+// componente para ver el pdf adentro del chat con botones de zoom y descarga
 function VisorPdf({ url, nombre }) {
-  const [zoom, setZoom] = useState(1);
+  const [nivelZoom, setNivelZoom] = useState(1);
 
-  const descargar = () => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = nombre || 'cotizacion.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  const descargarArchivo = () => {
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = nombre || 'cotizacion.pdf';
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
   };
 
   return (
@@ -85,21 +85,21 @@ function VisorPdf({ url, nombre }) {
               id="btn-zoom-out"
               type="button"
               className="mb-icono"
-              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_PASO).toFixed(2)))}
-              disabled={zoom <= ZOOM_MIN}
-              aria-label="Zoom out"
+              onClick={() => setNivelZoom((actual) => Math.max(ZOOM_MINIMO, +(actual - PASO_ZOOM).toFixed(2)))}
+              disabled={nivelZoom <= ZOOM_MINIMO}
+              aria-label="Alejar"
               title="Reducir zoom"
             >
               <ZoomOut size={16} strokeWidth={2} />
             </button>
-            <span className="mb-zoom-valor">{Math.round(zoom * 100)}%</span>
+            <span className="mb-zoom-valor">{Math.round(nivelZoom * 100)}%</span>
             <button
               id="btn-zoom-in"
               type="button"
               className="mb-icono"
-              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_PASO).toFixed(2)))}
-              disabled={zoom >= ZOOM_MAX}
-              aria-label="Zoom in"
+              onClick={() => setNivelZoom((actual) => Math.min(ZOOM_MAXIMO, +(actual + PASO_ZOOM).toFixed(2)))}
+              disabled={nivelZoom >= ZOOM_MAXIMO}
+              aria-label="Acercar"
               title="Aumentar zoom"
             >
               <ZoomIn size={16} strokeWidth={2} />
@@ -110,7 +110,7 @@ function VisorPdf({ url, nombre }) {
             id="btn-descargar"
             type="button"
             className="mb-descargar"
-            onClick={descargar}
+            onClick={descargarArchivo}
           >
             <Download size={16} strokeWidth={2} />
             <span>Descargar PDF</span>
@@ -122,138 +122,140 @@ function VisorPdf({ url, nombre }) {
         <iframe
           title={nombre}
           src={`${url}#navpanes=0&view=FitH`}
-          style={{ width: `${zoom * 100}%`, height: `${ALTO_BASE * zoom}px` }}
+          style={{ width: `${nivelZoom * 100}%`, height: `${ALTO_VISOR * nivelZoom}px` }}
         />
       </div>
     </div>
   );
 }
 
-/* ---------------- Vista: Generar PDF (chat) ---------------- */
+// pestaña del chat para generar y corregir las cotizaciones
 function VistaChat() {
-  const [mensajes, setMensajes] = useState([MENSAJE_INICIAL]);
-  const [entrada, setEntrada] = useState('');
+  const [listaMensajes, setListaMensajes] = useState([MENSAJE_BIENVENIDA]);
+  const [textoEntrada, setTextoEntrada] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [ultimoId, setUltimoId] = useState(null);
-  const contador = useRef(0);
-  const finRef = useRef(null);
-  const areaRef = useRef(null);
+  const [idDocumentoActivo, setIdDocumentoActivo] = useState(null);
+  const contadorMensajes = useRef(0);
+  const refFinalChat = useRef(null);
+  const refCajaTexto = useRef(null);
 
   useEffect(() => {
-    finRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [mensajes]);
+    refFinalChat.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [listaMensajes]);
 
   useEffect(() => {
-    const el = areaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, [entrada]);
+    const caja = refCajaTexto.current;
+    if (!caja) return;
+    caja.style.height = 'auto';
+    caja.style.height = `${Math.min(caja.scrollHeight, 160)}px`;
+  }, [textoEntrada]);
 
-  const siguienteId = () => `m-${++contador.current}`;
+  const generarIdMensaje = () => `m-${++contadorMensajes.current}`;
 
-  const enviar = useCallback(async () => {
-    const texto = entrada.trim();
-    if (!texto || enviando) return;
+  const enviarMensaje = useCallback(async () => {
+    const textoLimpio = textoEntrada.trim();
+    if (!textoLimpio || enviando) return;
 
-    const idCarga = siguienteId();
-    setEntrada('');
+    const idTemporal = generarIdMensaje();
+    setTextoEntrada('');
     setEnviando(true);
-    setMensajes((m) => [
-      ...m,
-      { id: siguienteId(), rol: 'usuario', tipo: 'texto', texto },
-      { id: idCarga, rol: 'ia', tipo: 'cargando' },
+    setListaMensajes((anteriores) => [
+      ...anteriores,
+      { id: generarIdMensaje(), rol: 'usuario', tipo: 'texto', texto: textoLimpio },
+      { id: idTemporal, rol: 'ia', tipo: 'cargando' },
     ]);
 
-    const reemplazar = (nuevo) =>
-      setMensajes((m) => m.map((x) => (x.id === idCarga ? { ...nuevo, id: idCarga, rol: 'ia' } : x)));
+    const actualizarRespuesta = (datosNuevos) =>
+      setListaMensajes((anteriores) =>
+        anteriores.map((msg) => (msg.id === idTemporal ? { ...datosNuevos, id: idTemporal, rol: 'ia' } : msg))
+      );
 
     try {
-      const r = await fetch(`${API}/api/memebretes/procesar`, {
+      const respuesta = await fetch(`${URL_SERVIDOR}/api/memebretes/procesar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje: texto, idDocumentoActual: ultimoId }),
+        body: JSON.stringify({ mensaje: textoLimpio, idDocumentoActual: idDocumentoActivo }),
       });
-      if (!r.ok) throw new Error(await leerError(r));
+      if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
 
-      const data = await r.json();
-      const url = await cargarPdf(data.id);
-      setUltimoId(data.id);
-      reemplazar({
+      const datos = await respuesta.json();
+      const urlPdf = await obtenerUrlPdf(datos.id);
+      setIdDocumentoActivo(datos.id);
+      actualizarRespuesta({
         tipo: 'pdf',
-        texto: data.mensaje,
-        pdf: { url, nombre: data.nombreArchivo },
+        texto: datos.mensaje,
+        pdf: { url: urlPdf, nombre: datos.nombreArchivo },
       });
-    } catch (e) {
-      reemplazar({ tipo: 'error', texto: e.message || 'Ocurrió un error inesperado.' });
+    } catch (error) {
+      actualizarRespuesta({ tipo: 'error', texto: error.message || 'Ocurrió un error inesperado.' });
     } finally {
       setEnviando(false);
     }
-  }, [entrada, enviando, ultimoId]);
+  }, [textoEntrada, enviando, idDocumentoActivo]);
 
-  const alTeclear = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      enviar();
+  const manejarTeclaEnter = (evento) => {
+    if (evento.key === 'Enter' && !evento.shiftKey) {
+      evento.preventDefault();
+      enviarMensaje();
     }
   };
 
   return (
     <>
       <div className="mb-mensajes" id="chat-mensajes">
-        {mensajes.map((m) => (
-          <div key={m.id} className={`mb-fila mb-fila-${m.rol}`}>
-            {m.rol === 'ia' && (
+        {listaMensajes.map((mensaje) => (
+          <div key={mensaje.id} className={`mb-fila mb-fila-${mensaje.rol}`}>
+            {mensaje.rol === 'ia' && (
               <div className="mb-avatar" title="Asistente Luxman">
                 <Sparkles size={16} strokeWidth={2} />
               </div>
             )}
             <div
-              className={`mb-burbuja mb-burbuja-${m.rol} ${
-                m.tipo === 'error' ? 'mb-error' : ''
-              } ${m.tipo === 'pdf' ? 'mb-burbuja-pdf' : ''}`}
+              className={`mb-burbuja mb-burbuja-${mensaje.rol} ${
+                mensaje.tipo === 'error' ? 'mb-error' : ''
+              } ${mensaje.tipo === 'pdf' ? 'mb-burbuja-pdf' : ''}`}
             >
-              {m.tipo === 'cargando' && (
+              {mensaje.tipo === 'cargando' && (
                 <div className="mb-escribiendo" aria-label="Generando PDF">
                   <Loader2 size={16} className="mb-spinner" />
                   <span className="mb-escribiendo-texto">Generando documento con membrete…</span>
                 </div>
               )}
-              {m.tipo !== 'cargando' && m.texto && (
+              {mensaje.tipo !== 'cargando' && mensaje.texto && (
                 <div className="mb-texto-contenedor">
-                  {m.tipo === 'error' && (
+                  {mensaje.tipo === 'error' && (
                     <AlertCircle size={18} strokeWidth={2} className="mb-icono-estado-error" />
                   )}
-                  {m.tipo === 'pdf' && (
+                  {mensaje.tipo === 'pdf' && (
                     <CheckCircle2 size={18} strokeWidth={2} className="mb-icono-estado-ok" />
                   )}
-                  <p className="mb-texto">{m.texto}</p>
+                  <p className="mb-texto">{mensaje.texto}</p>
                 </div>
               )}
-              {m.tipo === 'pdf' && <VisorPdf url={m.pdf.url} nombre={m.pdf.nombre} />}
+              {mensaje.tipo === 'pdf' && <VisorPdf url={mensaje.pdf.url} nombre={mensaje.pdf.nombre} />}
             </div>
           </div>
         ))}
-        <div ref={finRef} />
+        <div ref={refFinalChat} />
       </div>
 
       <div className="mb-entrada-wrapper">
         <form
           className="mb-entrada"
-          onSubmit={(e) => {
-            e.preventDefault();
-            enviar();
+          onSubmit={(evento) => {
+            evento.preventDefault();
+            enviarMensaje();
           }}
         >
           <textarea
             id="chat-input"
-            ref={areaRef}
+            ref={refCajaTexto}
             rows={1}
-            value={entrada}
-            onChange={(e) => setEntrada(e.target.value)}
-            onKeyDown={alTeclear}
+            value={textoEntrada}
+            onChange={(evento) => setTextoEntrada(evento.target.value)}
+            onKeyDown={manejarTeclaEnter}
             placeholder={
-              ultimoId
+              idDocumentoActivo
                 ? 'Pega un texto nuevo o escribe: "corrige solo el precio a $15,000"'
                 : 'Pega aquí el texto de la cotización…'
             }
@@ -263,7 +265,7 @@ function VistaChat() {
             id="chat-enviar"
             type="submit"
             className="mb-enviar"
-            disabled={enviando || !entrada.trim()}
+            disabled={enviando || !textoEntrada.trim()}
             aria-label="Enviar"
             title="Enviar mensaje"
           >
@@ -276,7 +278,7 @@ function VistaChat() {
         </form>
         <div className="mb-entrada-pie">
           <span>Presiona <strong>Enter</strong> para enviar o <strong>Shift + Enter</strong> para salto de línea</span>
-          {ultimoId && (
+          {idDocumentoActivo && (
             <span className="mb-estado-doc-activo">
               <FileCheck2 size={13} strokeWidth={2} /> Documento activo listo para correcciones
             </span>
@@ -287,39 +289,39 @@ function VistaChat() {
   );
 }
 
-/* ---------------- Vista: Historial de PDF ---------------- */
+// pestaña para consultar todos los pdfs guardados en mongodb
 function VistaHistorial() {
-  const [items, setItems] = useState(null);
-  const [error, setError] = useState('');
-  const [abierto, setAbierto] = useState(null); // { id, url, nombre }
-  const [cargandoId, setCargandoId] = useState(null);
+  const [documentos, setDocumentos] = useState(null);
+  const [mensajeError, setMensajeError] = useState('');
+  const [documentoAbierto, setDocumentoAbierto] = useState(null);
+  const [idCargando, setIdCargando] = useState(null);
 
   useEffect(() => {
-    let vivo = true;
-    fetch(`${API}/api/memebretes`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error(await leerError(r));
-        return r.json();
+    let componenteActivo = true;
+    fetch(`${URL_SERVIDOR}/api/memebretes`)
+      .then(async (respuesta) => {
+        if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
+        return respuesta.json();
       })
-      .then((d) => vivo && setItems(d))
-      .catch((e) => vivo && setError(e.message));
+      .then((datos) => componenteActivo && setDocumentos(datos))
+      .catch((error) => componenteActivo && setMensajeError(error.message));
     return () => {
-      vivo = false;
+      componenteActivo = false;
     };
   }, []);
 
-  const ver = async (it) => {
-    setCargandoId(it.id);
+  const abrirDocumento = async (registro) => {
+    setIdCargando(registro.id);
     try {
-      const url = await cargarPdf(it.id);
-      const fecha = new Date(it.fecha).toISOString().slice(0, 10).replaceAll('-', '');
-      const limpio =
-        it.nombreCliente.replace(/[^\p{L}\p{N} ]/gu, '').trim().replaceAll(' ', '_') || 'Cliente';
-      setAbierto({ id: it.id, url, nombre: `Cotizacion_${limpio}_${fecha}.pdf` });
-    } catch (e) {
-      setError(e.message);
+      const urlPdf = await obtenerUrlPdf(registro.id);
+      const fechaCorta = new Date(registro.fecha).toISOString().slice(0, 10).replaceAll('-', '');
+      const clienteLimpio =
+        registro.nombreCliente.replace(/[^\p{L}\p{N} ]/gu, '').trim().replaceAll(' ', '_') || 'Cliente';
+      setDocumentoAbierto({ id: registro.id, url: urlPdf, nombre: `Cotizacion_${clienteLimpio}_${fechaCorta}.pdf` });
+    } catch (error) {
+      setMensajeError(error.message);
     } finally {
-      setCargandoId(null);
+      setIdCargando(null);
     }
   };
 
@@ -332,29 +334,29 @@ function VistaHistorial() {
             Consulta, visualiza y descarga los documentos oficiales con membrete almacenados en el sistema.
           </p>
         </div>
-        {items && (
+        {documentos && (
           <span className="mb-historial-contador">
             <FileText size={15} strokeWidth={2} />
-            {items.length} {items.length === 1 ? 'documento' : 'documentos'}
+            {documentos.length} {documentos.length === 1 ? 'documento' : 'documentos'}
           </span>
         )}
       </div>
 
-      {error && (
+      {mensajeError && (
         <div className="mb-aviso mb-error-texto">
           <AlertCircle size={18} strokeWidth={2} />
-          <span>{error}</span>
+          <span>{mensajeError}</span>
         </div>
       )}
 
-      {!items && !error && (
+      {!documentos && !mensajeError && (
         <div className="mb-estado-vacio">
           <Loader2 size={24} strokeWidth={2} className="mb-spinner" />
           <p className="mb-aviso">Cargando historial de cotizaciones…</p>
         </div>
       )}
 
-      {items && items.length === 0 && (
+      {documentos && documentos.length === 0 && (
         <div className="mb-estado-vacio">
           <div className="mb-estado-vacio-icono">
             <FileText size={28} strokeWidth={1.75} />
@@ -365,21 +367,21 @@ function VistaHistorial() {
       )}
 
       <div className="mb-lista-items">
-        {items?.map((it) => {
-          const estaAbierto = abierto?.id === it.id;
-          const estaCargando = cargandoId === it.id;
+        {documentos?.map((registro) => {
+          const estaAbierto = documentoAbierto?.id === registro.id;
+          const estaCargando = idCargando === registro.id;
           return (
-            <div key={it.id} className={`mb-item ${estaAbierto ? 'activo' : ''}`}>
+            <div key={registro.id} className={`mb-item ${estaAbierto ? 'activo' : ''}`}>
               <div className="mb-item-cabecera">
                 <div className="mb-item-meta">
                   <div className="mb-item-avatar">
                     <User size={18} strokeWidth={2} />
                   </div>
                   <div className="mb-item-textos">
-                    <strong>{it.nombreCliente}</strong>
+                    <strong>{registro.nombreCliente}</strong>
                     <span className="mb-item-fecha">
                       <Calendar size={13} strokeWidth={2} />
-                      {formatearFecha(it.fecha)}
+                      {formatearFechaHora(registro.fecha)}
                     </span>
                   </div>
                 </div>
@@ -387,7 +389,7 @@ function VistaHistorial() {
                 <button
                   type="button"
                   className={`mb-btn-accion-historial ${estaAbierto ? 'abierto' : ''}`}
-                  onClick={() => (estaAbierto ? setAbierto(null) : ver(it))}
+                  onClick={() => (estaAbierto ? setDocumentoAbierto(null) : abrirDocumento(registro))}
                   disabled={estaCargando}
                 >
                   {estaCargando ? (
@@ -408,7 +410,7 @@ function VistaHistorial() {
                   )}
                 </button>
               </div>
-              {estaAbierto && <VisorPdf url={abierto.url} nombre={abierto.nombre} />}
+              {estaAbierto && <VisorPdf url={documentoAbierto.url} nombre={documentoAbierto.nombre} />}
             </div>
           );
         })}
@@ -417,9 +419,8 @@ function VistaHistorial() {
   );
 }
 
-/* ---------------- Contenedor principal ---------------- */
 export default function ChatMemebretes() {
-  const [vista, setVista] = useState('generar');
+  const [pestanaActual, setPestanaActual] = useState('generar');
 
   return (
     <div className="mb-app">
@@ -437,8 +438,8 @@ export default function ChatMemebretes() {
           <button
             id="btn-generar"
             type="button"
-            className={vista === 'generar' ? 'activo' : ''}
-            onClick={() => setVista('generar')}
+            className={pestanaActual === 'generar' ? 'activo' : ''}
+            onClick={() => setPestanaActual('generar')}
           >
             <Sparkles size={16} strokeWidth={2} />
             <span>1. Generar PDF</span>
@@ -446,8 +447,8 @@ export default function ChatMemebretes() {
           <button
             id="btn-historial"
             type="button"
-            className={vista === 'historial' ? 'activo' : ''}
-            onClick={() => setVista('historial')}
+            className={pestanaActual === 'historial' ? 'activo' : ''}
+            onClick={() => setPestanaActual('historial')}
           >
             <History size={16} strokeWidth={2} />
             <span>2. Historial de PDF</span>
@@ -456,11 +457,10 @@ export default function ChatMemebretes() {
       </header>
 
       <main className="mb-main">
-        {/* Se mantiene montado para conservar la conversación al ir al historial */}
-        <section className="mb-seccion" hidden={vista !== 'generar'}>
+        <section className="mb-seccion" hidden={pestanaActual !== 'generar'}>
           <VistaChat />
         </section>
-        {vista === 'historial' && (
+        {pestanaActual === 'historial' && (
           <section className="mb-seccion mb-scroll">
             <VistaHistorial />
           </section>

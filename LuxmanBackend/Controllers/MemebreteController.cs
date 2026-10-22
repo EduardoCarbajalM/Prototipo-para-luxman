@@ -7,10 +7,10 @@ using LuxmanErp.Services;
 
 namespace LuxmanErp.Controllers
 {
-    public class ProcesarMemebreteRequest
+    // datos que manda el chat desde el front
+    public class PeticionMemebrete
     {
         public string Mensaje { get; set; } = "";
-        // id del ultimo PDF de la conversacion; se usa para las correcciones
         public string? IdDocumentoActual { get; set; }
     }
 
@@ -18,118 +18,114 @@ namespace LuxmanErp.Controllers
     [Route("api/memebretes")]
     public class MemebreteController : ControllerBase
     {
-        private readonly MemebretePdfService _pdf;
-        private readonly MemebreteRepository _repo;
+        private readonly MemebretePdfService servicioPdf;
+        private readonly MemebreteRepository repositorio;
 
-        public MemebreteController(MemebretePdfService pdf, MemebreteRepository repo)
+        public MemebreteController(MemebretePdfService servicioPdf, MemebreteRepository repositorio)
         {
-            _pdf = pdf;
-            _repo = repo;
+            this.servicioPdf = servicioPdf;
+            this.repositorio = repositorio;
         }
 
-        // POST api/memebretes/procesar
-        // Un solo endpoint para el chat: genera un PDF nuevo o aplica una correccion
+        // recibe el mensaje del chat, revisa si es correccion o texto nuevo y arma el pdf
         [HttpPost("procesar")]
-        public async Task<IActionResult> Procesar([FromBody] ProcesarMemebreteRequest req)
+        public async Task<IActionResult> Procesar([FromBody] PeticionMemebrete peticion)
         {
-            if (req == null || string.IsNullOrWhiteSpace(req.Mensaje))
+            if (peticion == null || string.IsNullOrWhiteSpace(peticion.Mensaje))
                 return BadRequest("Escribe el texto de la cotización.");
 
             try
             {
-                string textoFinal = req.Mensaje;
-                string mensajeIa;
-                bool corregido = false;
+                string textoFinal = peticion.Mensaje;
+                string respuestaChat = "Listo, aquí está tu cotización en PDF. Los textos son editables directamente sobre el documento.";
+                bool fueCorregido = false;
 
-                if (TextoCotizacionParser.EsCorreccion(req.Mensaje))
+                // checamos si el usuario pidio corregir algo del documento anterior
+                if (TextoCotizacionParser.EsCorreccion(peticion.Mensaje))
                 {
-                    if (string.IsNullOrWhiteSpace(req.IdDocumentoActual))
+                    if (string.IsNullOrWhiteSpace(peticion.IdDocumentoActual))
                         return BadRequest("Primero genera un PDF para poder corregirlo.");
 
-                    var actual = await _repo.ObtenerAsync(req.IdDocumentoActual);
-                    if (actual == null)
+                    var docAnterior = await repositorio.ObtenerAsync(peticion.IdDocumentoActual);
+                    if (docAnterior == null)
                         return NotFound("No encontré el documento a corregir.");
 
-                    var correccion = TextoCotizacionParser.AplicarCorreccion(actual.TextoOriginal, req.Mensaje);
-                    if (!correccion.Aplicada)
-                        return UnprocessableEntity(correccion.Mensaje);
+                    var resultadoCorreccion = TextoCotizacionParser.AplicarCorreccion(docAnterior.TextoOriginal, peticion.Mensaje);
+                    if (!resultadoCorreccion.Aplicada)
+                        return UnprocessableEntity(resultadoCorreccion.Mensaje);
 
-                    textoFinal = correccion.TextoNuevo;
-                    mensajeIa = correccion.Mensaje;
-                    corregido = true;
-                }
-                else
-                {
-                    mensajeIa = "Listo, aquí está tu cotización en PDF. Los textos son editables directamente sobre el documento.";
+                    textoFinal = resultadoCorreccion.TextoNuevo;
+                    respuestaChat = resultadoCorreccion.Mensaje;
+                    fueCorregido = true;
                 }
 
-                var contenido = TextoCotizacionParser.Parsear(textoFinal);
-                DateTime fecha = MemebretePdfService.AhoraMexico();
-                byte[] bytes = _pdf.Generar(contenido, fecha);
+                var datosTexto = TextoCotizacionParser.Parsear(textoFinal);
+                DateTime fechaActual = MemebretePdfService.AhoraMexico();
+                byte[] bytesPdf = servicioPdf.Generar(datosTexto, fechaActual);
 
-                var guardado = await _repo.GuardarAsync(new MemebretePdf
+                var docGuardado = await repositorio.GuardarAsync(new MemebretePdf
                 {
                     Fecha = DateTime.UtcNow,
-                    NombreCliente = contenido.NombreCliente,
-                    Archivo = bytes,
+                    NombreCliente = datosTexto.NombreCliente,
+                    Archivo = bytesPdf,
                     TextoOriginal = textoFinal
                 });
 
                 return Ok(new
                 {
-                    id = guardado.Id,
-                    nombreCliente = guardado.NombreCliente,
-                    fecha = guardado.Fecha,
-                    nombreArchivo = NombreArchivo(guardado.NombreCliente, fecha),
-                    corregido,
-                    mensaje = mensajeIa
+                    id = docGuardado.Id,
+                    nombreCliente = docGuardado.NombreCliente,
+                    fecha = docGuardado.Fecha,
+                    nombreArchivo = ArmarNombreArchivo(docGuardado.NombreCliente, fechaActual),
+                    corregido = fueCorregido,
+                    mensaje = respuestaChat
                 });
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                return StatusCode(500, "Error al generar el PDF: " + ex.Message);
+                return StatusCode(500, "Error al generar el PDF: " + error.Message);
             }
         }
 
-        // GET api/memebretes  -> historial (sin binarios)
+        // devuelve la lista de documentos guardados en mongo
         [HttpGet]
         public async Task<IActionResult> Historial()
         {
             try
             {
-                return Ok(await _repo.ListarAsync());
+                return Ok(await repositorio.ListarAsync());
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                return StatusCode(500, "Error al consultar el historial: " + ex.Message);
+                return StatusCode(500, "Error al consultar el historial: " + error.Message);
             }
         }
 
-        // GET api/memebretes/{id}/pdf[?descargar=true]
+        // devuelve el archivo pdf por su id de mongo
         [HttpGet("{id}/pdf")]
         public async Task<IActionResult> ObtenerPdf(string id, [FromQuery] bool descargar = false)
         {
             try
             {
-                var doc = await _repo.ObtenerAsync(id);
-                if (doc == null) return NotFound("No existe ese documento.");
+                var documento = await repositorio.ObtenerAsync(id);
+                if (documento == null) return NotFound("No existe ese documento.");
 
-                string nombre = NombreArchivo(doc.NombreCliente, doc.Fecha.ToLocalTime());
+                string nombre = ArmarNombreArchivo(documento.NombreCliente, documento.Fecha.ToLocalTime());
                 return descargar
-                    ? File(doc.Archivo, "application/pdf", nombre)
-                    : File(doc.Archivo, "application/pdf");
+                    ? File(documento.Archivo, "application/pdf", nombre)
+                    : File(documento.Archivo, "application/pdf");
             }
             catch (FormatException)
             {
                 return NotFound("Identificador inválido.");
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                return StatusCode(500, "Error al obtener el PDF: " + ex.Message);
+                return StatusCode(500, "Error al obtener el PDF: " + error.Message);
             }
         }
 
-        private static string NombreArchivo(string cliente, DateTime fecha)
+        private static string ArmarNombreArchivo(string cliente, DateTime fecha)
         {
             string limpio = new string(cliente.Where(c => char.IsLetterOrDigit(c) || c == ' ').ToArray())
                 .Trim().Replace(' ', '_');

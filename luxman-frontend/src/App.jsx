@@ -4,10 +4,10 @@ import FormularioCotizacion from './components/FormularioCotizacion';
 import ChatMemebretes from './components/ChatMemebretes';
 
 function App() {
-  // Estado para controlar la pantalla actual ('inicio' por defecto)
+  // guardamos en que vista estamos para cambiar entre el catalogo y la calculadora
   const [pantallaActual, setPantallaActual] = useState('inicio');
 
-  // Sistema interno del CEO: se abre con http://localhost:5173/#/memebretes
+  // si entran con #/memebretes mostramos el chat de cotizaciones
   if (window.location.hash === '#/memebretes') {
     return <ChatMemebretes />;
   }

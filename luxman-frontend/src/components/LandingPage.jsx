@@ -12,18 +12,18 @@ import {
 } from 'lucide-react';
 import './LandingPage.css';
 
-// Sub-componente independiente para manejar el carrusel de cada tarjeta
+// componente para pasar las fotos de cada equipo en las tarjetas
 const CarruselImagenes = ({ imagenes }) => {
   const [indiceActual, setIndiceActual] = useState(0);
 
-  const irSiguiente = (e) => {
-    e.stopPropagation(); // Evita que otros clics interfieran
-    setIndiceActual((prev) => (prev === imagenes.length - 1 ? 0 : prev + 1));
+  const irSiguiente = (evento) => {
+    evento.stopPropagation();
+    setIndiceActual((anterior) => (anterior === imagenes.length - 1 ? 0 : anterior + 1));
   };
 
-  const irAnterior = (e) => {
-    e.stopPropagation();
-    setIndiceActual((prev) => (prev === 0 ? imagenes.length - 1 : prev - 1));
+  const irAnterior = (evento) => {
+    evento.stopPropagation();
+    setIndiceActual((anterior) => (anterior === 0 ? imagenes.length - 1 : anterior - 1));
   };
 
   return (
@@ -34,7 +34,6 @@ const CarruselImagenes = ({ imagenes }) => {
         className="imagen-carrusel"
       />
 
-      {/* Solo muestra los botones si hay más de 1 imagen */}
       {imagenes.length > 1 && (
         <>
           <button
@@ -54,11 +53,11 @@ const CarruselImagenes = ({ imagenes }) => {
             <ChevronRight size={18} strokeWidth={2.2} />
           </button>
           <div className="indicadores-carrusel">
-            {imagenes.map((_, idx) => (
+            {imagenes.map((_, indice) => (
               <span
-                key={idx}
-                className={`punto-carrusel ${idx === indiceActual ? 'activo' : ''}`}
-              ></span>
+                key={indice}
+                className={`punto-carrusel ${indice === indiceActual ? 'activo' : ''}`}
+              />
             ))}
           </div>
         </>
@@ -67,94 +66,88 @@ const CarruselImagenes = ({ imagenes }) => {
   );
 };
 
+// datos de los equipos que se muestran en el catalogo
+const LISTA_PRODUCTOS = [
+  {
+    titulo: 'Marmitas Industriales',
+    material: 'Acero Grado 304 y 316',
+    descripcion:
+      'Sistemas diseñados para cocción uniforme, mezclado dinámico y calentamiento controlado en la industria alimenticia y química.',
+    imagenes: ['/img/equipos/1.jpg', '/img/equipos/11.jpg', '/img/equipos/16.jpg'],
+  },
+  {
+    titulo: 'Reactores Químicos',
+    material: 'Acero Grado 316L',
+    descripcion:
+      'Construcción de alta resistencia para trabajar con presión y temperatura extremas, bajo estrictos estándares de seguridad.',
+    imagenes: ['/img/equipos/12.jpg', '/img/equipos/18.jpg', '/img/equipos/19.jpg'],
+  },
+  {
+    titulo: 'Mezcladoras de Doble Listón',
+    material: 'Acero Grado 304',
+    descripcion:
+      'Homogeneización rápida y continua para mezclas sólidas y polvos secos, minimizando tiempos de producción.',
+    imagenes: [
+      '/img/equipos/7.jpg',
+      '/img/equipos/13.jpg',
+      '/img/equipos/14.jpg',
+      '/img/equipos/15.jpg',
+      '/img/equipos/17.jpg',
+    ],
+  },
+  {
+    titulo: 'Tanques de Proceso y Almacén',
+    material: 'Acero Grado 304 y 316',
+    descripcion:
+      'Acabados sanitarios pulidos espejo que previenen la acumulación bacteriana y facilitan protocolos de limpieza CIP.',
+    imagenes: [
+      '/img/equipos/3.jpg',
+      '/img/equipos/4.jpg',
+      '/img/equipos/5.jpg',
+      '/img/equipos/6.jpg',
+    ],
+  },
+  {
+    titulo: 'Tanques Enchaquetados',
+    material: 'Acero Grado 304 y 316',
+    descripcion:
+      'Aislamiento térmico y chaqueta externa para recirculación de vapor o salmuera, ideal para fermentación y enfriamiento.',
+    imagenes: ['/img/equipos/20.jpg'],
+  },
+  {
+    titulo: 'Agitadores Industriales',
+    material: 'Acero Grado 316',
+    descripcion:
+      'Impulsores tipo turbina, áncora o hélice marina, calibrados según la viscosidad y reología de tu formulación.',
+    imagenes: [
+      '/img/equipos/2.jpg',
+      '/img/equipos/8.jpg',
+      '/img/equipos/9.jpg',
+      '/img/equipos/10.jpg',
+    ],
+  },
+];
+
+const LISTA_SECTORES = [
+  'Farmacéutica',
+  'Alimenticia',
+  'Química',
+  'Cosmética',
+  'Tratamiento de Aguas',
+  'Petroquímica',
+];
+
+const VARIANTES_CONTENEDOR = {
+  oculto: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
+};
+
+const VARIANTES_TARJETA = {
+  oculto: { opacity: 0, y: 35 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+};
+
 function LandingPage({ alIrACotizador }) {
-  // Lista de productos actualizada con las rutas correctas hacia public/img/equipos/
-  const listaProductos = [
-    {
-      titulo: 'Marmitas Industriales',
-      material: 'Acero Grado 304 y 316',
-      descripcion:
-        'Sistemas diseñados para cocción uniforme, mezclado dinámico y calentamiento controlado en la industria alimenticia y química.',
-      imagenes: ['/img/equipos/1.jpg', '/img/equipos/11.jpg', '/img/equipos/16.jpg'],
-    },
-    {
-      titulo: 'Reactores Químicos',
-      material: 'Acero Grado 316L',
-      descripcion:
-        'Construcción de alta resistencia para trabajar con presión y temperatura extremas, bajo estrictos estándares de seguridad.',
-      imagenes: ['/img/equipos/12.jpg', '/img/equipos/18.jpg', '/img/equipos/19.jpg'],
-    },
-    {
-      titulo: 'Mezcladoras de Doble Listón',
-      material: 'Acero Grado 304',
-      descripcion:
-        'Homogeneización rápida y continua para mezclas sólidas y polvos secos, minimizando tiempos de producción.',
-      imagenes: [
-        '/img/equipos/7.jpg',
-        '/img/equipos/13.jpg',
-        '/img/equipos/14.jpg',
-        '/img/equipos/15.jpg',
-        '/img/equipos/17.jpg',
-      ],
-    },
-    {
-      titulo: 'Tanques de Proceso y Almacén',
-      material: 'Acero Grado 304 y 316',
-      descripcion:
-        'Acabados sanitarios pulidos espejo que previenen la acumulación bacteriana y facilitan protocolos de limpieza CIP.',
-      imagenes: [
-        '/img/equipos/3.jpg',
-        '/img/equipos/4.jpg',
-        '/img/equipos/5.jpg',
-        '/img/equipos/6.jpg',
-      ],
-    },
-    {
-      titulo: 'Tanques Enchaquetados',
-      material: 'Acero Grado 304 y 316',
-      descripcion:
-        'Aislamiento térmico y chaqueta externa para recirculación de vapor o salmuera, ideal para fermentación y enfriamiento.',
-      imagenes: ['/img/equipos/20.jpg'],
-    },
-    {
-      titulo: 'Agitadores Industriales',
-      material: 'Acero Grado 316',
-      descripcion:
-        'Impulsores tipo turbina, áncora o hélice marina, calibrados según la viscosidad y reología de tu formulación.',
-      imagenes: [
-        '/img/equipos/2.jpg',
-        '/img/equipos/8.jpg',
-        '/img/equipos/9.jpg',
-        '/img/equipos/10.jpg',
-      ],
-    },
-  ];
-
-  const listaSectores = [
-    'Farmacéutica',
-    'Alimenticia',
-    'Química',
-    'Cosmética',
-    'Tratamiento de Aguas',
-    'Petroquímica',
-  ];
-
-  const variantesContenedor = {
-    oculto: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
-  };
-
-  const variantesTarjeta = {
-    oculto: { opacity: 0, y: 35 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
-  };
-
-  function manejarBotonCotizador() {
-    if (alIrACotizador) {
-      alIrACotizador();
-    }
-  }
-
   return (
     <div className="fondo-oscuro-gradiente">
       <nav className="navbar sticky-top navbar-cristal py-3">
@@ -176,7 +169,7 @@ function LandingPage({ alIrACotizador }) {
             Equipos Inoxidables • Maestría Industrial
           </span>
           <button
-            onClick={manejarBotonCotizador}
+            onClick={alIrACotizador}
             className="btn btn-secundario-claro btn-sm rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2"
           >
             <Calculator size={16} strokeWidth={2} />
@@ -207,7 +200,7 @@ function LandingPage({ alIrACotizador }) {
             <div className="d-flex justify-content-center gap-3 flex-wrap">
               <button
                 type="button"
-                onClick={manejarBotonCotizador}
+                onClick={alIrACotizador}
                 className="btn btn-verde-esmeralda btn-lg px-4 rounded-pill d-inline-flex align-items-center gap-2"
               >
                 <Calculator size={18} strokeWidth={2} />
@@ -234,13 +227,13 @@ function LandingPage({ alIrACotizador }) {
 
           <motion.div
             className="row g-4"
-            variants={variantesContenedor}
+            variants={VARIANTES_CONTENEDOR}
             initial="oculto"
             whileInView="visible"
             viewport={{ once: true, amount: 0.1 }}
           >
-            {listaProductos.map((producto, indice) => (
-              <motion.div className="col-md-4" key={indice} variants={variantesTarjeta}>
+            {LISTA_PRODUCTOS.map((producto, indice) => (
+              <motion.div className="col-md-4" key={indice} variants={VARIANTES_TARJETA}>
                 <div className="card tarjeta-cristal h-100 overflow-hidden text-start">
                   <CarruselImagenes imagenes={producto.imagenes} />
 
@@ -271,7 +264,7 @@ function LandingPage({ alIrACotizador }) {
             Diseñamos soluciones especializadas para cumplir con las normativas sanitarias y químicas de cada sector.
           </p>
           <div className="d-flex flex-wrap justify-content-center gap-2">
-            {listaSectores.map((sector, indice) => (
+            {LISTA_SECTORES.map((sector, indice) => (
               <span
                 key={indice}
                 className="badge insignia-cristal fs-6 px-4 py-2 rounded-pill d-inline-flex align-items-center gap-2"
@@ -298,7 +291,7 @@ function LandingPage({ alIrACotizador }) {
             tipo de acero y requerimientos de agitación de tu empresa.
           </p>
           <button
-            onClick={manejarBotonCotizador}
+            onClick={alIrACotizador}
             className="btn btn-verde-esmeralda btn-lg rounded-pill mt-2 px-5 py-3 fs-5 fw-bold d-inline-flex align-items-center gap-2"
           >
             <span>Ir al Cotizador Interno</span>
