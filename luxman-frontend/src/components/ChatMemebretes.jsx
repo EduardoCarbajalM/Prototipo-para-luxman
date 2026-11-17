@@ -16,10 +16,12 @@ import {
   Building2,
   CheckCircle2,
   FileCheck2,
+  Trash2,
+  RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import './ChatMemebretes.css';
 
-// Usamos ruta relativa vacía para que las peticiones /api/ se envíen a la misma URL segura (HTTPS) servida por Nginx
 const URL_SERVIDOR = import.meta.env.VITE_API_URL || '';
 const ZOOM_MINIMO = 0.5;
 const ZOOM_MAXIMO = 2.5;
@@ -33,7 +35,6 @@ const MENSAJE_BIENVENIDA = {
   texto: 'Por favor inserta tu texto completo aquí',
 };
 
-// Pide los bytes del pdf al backend y crea una url temporal para mostrarlo en el iframe
 async function obtenerUrlPdf(idDocumento) {
   const respuesta = await fetch(`${URL_SERVIDOR}/api/memebretes/${idDocumento}/pdf`);
   if (!respuesta.ok) throw new Error('No se pudo cargar el PDF.');
@@ -54,7 +55,6 @@ function formatearFechaHora(fechaIso) {
   return new Date(fechaIso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-// Componente para ver el pdf adentro del chat con botones de zoom y descarga
 function VisorPdf({ url, nombre }) {
   const [nivelZoom, setNivelZoom] = useState(1);
 
@@ -130,7 +130,6 @@ function VisorPdf({ url, nombre }) {
   );
 }
 
-// Pestaña del chat para generar y corregir las cotizaciones
 function VistaChat() {
   const [listaMensajes, setListaMensajes] = useState([MENSAJE_BIENVENIDA]);
   const [textoEntrada, setTextoEntrada] = useState('');
@@ -290,26 +289,25 @@ function VistaChat() {
   );
 }
 
-// Pestaña para consultar todos los pdfs guardados en mongodb
 function VistaHistorial() {
   const [documentos, setDocumentos] = useState(null);
   const [mensajeError, setMensajeError] = useState('');
   const [documentoAbierto, setDocumentoAbierto] = useState(null);
   const [idCargando, setIdCargando] = useState(null);
 
-  useEffect(() => {
-    let componenteActivo = true;
+  const cargarHistorial = useCallback(() => {
     fetch(`${URL_SERVIDOR}/api/memebretes`)
       .then(async (respuesta) => {
         if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
         return respuesta.json();
       })
-      .then((datos) => componenteActivo && setDocumentos(datos))
-      .catch((error) => componenteActivo && setMensajeError(error.message));
-    return () => {
-      componenteActivo = false;
-    };
+      .then((datos) => setDocumentos(datos))
+      .catch((error) => setMensajeError(error.message));
   }, []);
+
+  useEffect(() => {
+    cargarHistorial();
+  }, [cargarHistorial]);
 
   const abrirDocumento = async (registro) => {
     setIdCargando(registro.id);
@@ -323,6 +321,18 @@ function VistaHistorial() {
       setMensajeError(error.message);
     } finally {
       setIdCargando(null);
+    }
+  };
+
+  const moverAPapelera = async (id) => {
+    if (!window.confirm('¿Deseas mover esta cotización a la papelera?')) return;
+    try {
+      const res = await fetch(`${URL_SERVIDOR}/api/memebretes/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo mover a la papelera.');
+      if (documentoAbierto?.id === id) setDocumentoAbierto(null);
+      cargarHistorial();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -387,34 +397,161 @@ function VistaHistorial() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className={`mb-btn-accion-historial ${estaAbierto ? 'abierto' : ''}`}
-                  onClick={() => (estaAbierto ? setDocumentoAbierto(null) : abrirDocumento(registro))}
-                  disabled={estaCargando}
-                >
-                  {estaCargando ? (
-                    <>
-                      <Loader2 size={16} strokeWidth={2} className="mb-spinner" />
-                      <span>Cargando…</span>
-                    </>
-                  ) : estaAbierto ? (
-                    <>
-                      <EyeOff size={16} strokeWidth={2} />
-                      <span>Ocultar PDF</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye size={16} strokeWidth={2} />
-                      <span>Ver PDF</span>
-                    </>
-                  )}
-                </button>
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className={`mb-btn-accion-historial ${estaAbierto ? 'abierto' : ''}`}
+                    onClick={() => (estaAbierto ? setDocumentoAbierto(null) : abrirDocumento(registro))}
+                    disabled={estaCargando}
+                  >
+                    {estaCargando ? (
+                      <>
+                        <Loader2 size={16} strokeWidth={2} className="mb-spinner" />
+                        <span>Cargando…</span>
+                      </>
+                    ) : estaAbierto ? (
+                      <>
+                        <EyeOff size={16} strokeWidth={2} />
+                        <span>Ocultar PDF</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={16} strokeWidth={2} />
+                        <span>Ver PDF</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="mb-btn-accion-historial mb-btn-papelera"
+                    onClick={() => moverAPapelera(registro.id)}
+                    title="Mover a la papelera"
+                  >
+                    <Trash2 size={16} strokeWidth={2} />
+                  </button>
+                </div>
               </div>
               {estaAbierto && <VisorPdf url={documentoAbierto.url} nombre={documentoAbierto.nombre} />}
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function VistaPapelera() {
+  const [documentos, setDocumentos] = useState(null);
+  const [mensajeError, setMensajeError] = useState('');
+
+  const cargarPapelera = useCallback(() => {
+    fetch(`${URL_SERVIDOR}/api/memebretes/papelera`)
+      .then(async (respuesta) => {
+        if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
+        return respuesta.json();
+      })
+      .then((datos) => setDocumentos(datos))
+      .catch((error) => setMensajeError(error.message));
+  }, []);
+
+  useEffect(() => {
+    cargarPapelera();
+  }, [cargarPapelera]);
+
+  const restaurarDocumento = async (id) => {
+    try {
+      const res = await fetch(`${URL_SERVIDOR}/api/memebretes/${id}/restaurar`, { method: 'POST' });
+      if (!res.ok) throw new Error('No se pudo restaurar la cotización.');
+      cargarPapelera();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const eliminarPermanente = async (id) => {
+    if (!window.confirm('¿Esta acción eliminará el PDF definitivamente. ¿Continuar?')) return;
+    try {
+      const res = await fetch(`${URL_SERVIDOR}/api/memebretes/${id}/permanente`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo eliminar el archivo.');
+      cargarPapelera();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  return (
+    <div className="mb-historial">
+      <div className="mb-historial-encabezado">
+        <div>
+          <h2>Papelera de Reciclaje</h2>
+          <p className="mb-historial-subtitulo">
+            Recupera cotizaciones eliminadas o deséchalas de forma permanente.
+          </p>
+        </div>
+      </div>
+
+      {mensajeError && (
+        <div className="mb-aviso mb-error-texto">
+          <AlertCircle size={18} strokeWidth={2} />
+          <span>{mensajeError}</span>
+        </div>
+      )}
+
+      {!documentos && !mensajeError && (
+        <div className="mb-estado-vacio">
+          <Loader2 size={24} strokeWidth={2} className="mb-spinner" />
+          <p className="mb-aviso">Cargando elementos eliminados…</p>
+        </div>
+      )}
+
+      {documentos && documentos.length === 0 && (
+        <div className="mb-estado-vacio">
+          <Trash2 size={28} strokeWidth={1.75} />
+          <h3>Papelera vacía</h3>
+          <p className="mb-aviso">No hay documentos eliminados recientemente.</p>
+        </div>
+      )}
+
+      <div className="mb-lista-items">
+        {documentos?.map((registro) => (
+          <div key={registro.id} className="mb-item">
+            <div className="mb-item-cabecera">
+              <div className="mb-item-meta">
+                <div className="mb-item-avatar">
+                  <User size={18} strokeWidth={2} />
+                </div>
+                <div className="mb-item-textos">
+                  <strong>{registro.nombreCliente}</strong>
+                  <span className="mb-item-fecha">
+                    <Calendar size={13} strokeWidth={2} />
+                    {formatearFechaHora(registro.fecha)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="mb-btn-accion-historial"
+                  onClick={() => restaurarDocumento(registro.id)}
+                >
+                  <RotateCcw size={16} strokeWidth={2} />
+                  <span>Restaurar</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="mb-btn-accion-historial mb-btn-papelera"
+                  onClick={() => eliminarPermanente(registro.id)}
+                >
+                  <AlertTriangle size={16} strokeWidth={2} />
+                  <span>Eliminar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -443,7 +580,7 @@ export default function ChatMemebretes() {
             onClick={() => setPestanaActual('generar')}
           >
             <Sparkles size={16} strokeWidth={2} />
-            <span>Generar PDF</span>
+            <span>1. Generar PDF</span>
           </button>
           <button
             id="btn-historial"
@@ -453,6 +590,15 @@ export default function ChatMemebretes() {
           >
             <History size={16} strokeWidth={2} />
             <span>2. Historial de PDF</span>
+          </button>
+          <button
+            id="btn-papelera"
+            type="button"
+            className={pestanaActual === 'papelera' ? 'activo' : ''}
+            onClick={() => setPestanaActual('papelera')}
+          >
+            <Trash2 size={16} strokeWidth={2} />
+            <span>3. Papelera / Recuperar</span>
           </button>
         </nav>
       </header>
@@ -464,6 +610,11 @@ export default function ChatMemebretes() {
         {pestanaActual === 'historial' && (
           <section className="mb-seccion mb-scroll">
             <VistaHistorial />
+          </section>
+        )}
+        {pestanaActual === 'papelera' && (
+          <section className="mb-seccion mb-scroll">
+            <VistaPapelera />
           </section>
         )}
       </main>

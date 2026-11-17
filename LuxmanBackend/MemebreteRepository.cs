@@ -6,7 +6,7 @@ using LuxmanErp.Models;
 
 namespace LuxmanErp.Services
 {
-    // conecta con mongodb para guardar y leer los pdfs que se hacen en el chat
+    // Conecta con MongoDB para guardar y leer los PDFs que se hacen en el chat
     public class MemebreteRepository
     {
         public const string NombreColeccion = "MemebretesPDF";
@@ -32,19 +32,59 @@ namespace LuxmanErp.Services
             return await coleccion.Find(doc => doc.Id == id).FirstOrDefaultAsync();
         }
 
-        // saca el historial ordenado del mas reciente al mas viejo
+        // Saca el historial activo (no eliminados) ordenado del más reciente al más viejo
         public async Task<List<MemebreteResumen>> ListarAsync()
         {
             return await coleccion
-                .Find(FilterDefinition<MemebretePdf>.Empty)
+                .Find(doc => !doc.Eliminado)
                 .SortByDescending(doc => doc.Fecha)
                 .Project(doc => new MemebreteResumen
                 {
                     Id = doc.Id!,
                     Fecha = doc.Fecha,
-                    NombreCliente = doc.NombreCliente
+                    NombreCliente = doc.NombreCliente,
+                    Eliminado = doc.Eliminado
                 })
                 .ToListAsync();
+        }
+
+        // Marca una cotización como eliminada (Soft Delete)
+        public async Task<bool> MoverAPapeleraAsync(string id)
+        {
+            var actualizacion = Builders<MemebretePdf>.Update.Set(doc => doc.Eliminado, true);
+            var resultado = await coleccion.UpdateOneAsync(doc => doc.Id == id, actualizacion);
+            return resultado.ModifiedCount > 0;
+        }
+
+        // Devuelve la lista de elementos en la papelera de reciclaje
+        public async Task<List<MemebreteResumen>> ListarPapeleraAsync()
+        {
+            return await coleccion
+                .Find(doc => doc.Eliminado)
+                .SortByDescending(doc => doc.Fecha)
+                .Project(doc => new MemebreteResumen
+                {
+                    Id = doc.Id!,
+                    Fecha = doc.Fecha,
+                    NombreCliente = doc.NombreCliente,
+                    Eliminado = doc.Eliminado
+                })
+                .ToListAsync();
+        }
+
+        // Restaura un documento de la papelera al historial activo
+        public async Task<bool> RestaurarAsync(string id)
+        {
+            var actualizacion = Builders<MemebretePdf>.Update.Set(doc => doc.Eliminado, false);
+            var resultado = await coleccion.UpdateOneAsync(doc => doc.Id == id, actualizacion);
+            return resultado.ModifiedCount > 0;
+        }
+
+        // Elimina el documento de forma definitiva en MongoDB
+        public async Task<bool> EliminarPermanenteAsync(string id)
+        {
+            var resultado = await coleccion.DeleteOneAsync(doc => doc.Id == id);
+            return resultado.DeletedCount > 0;
         }
     }
 }

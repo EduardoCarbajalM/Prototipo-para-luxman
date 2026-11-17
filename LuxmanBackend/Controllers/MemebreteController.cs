@@ -7,7 +7,7 @@ using LuxmanErp.Services;
 
 namespace LuxmanErp.Controllers
 {
-    // datos que manda el chat desde el front
+    // Datos que manda el chat desde el frontend
     public class PeticionMemebrete
     {
         public string Mensaje { get; set; } = "";
@@ -27,7 +27,7 @@ namespace LuxmanErp.Controllers
             this.repositorio = repositorio;
         }
 
-        // recibe el mensaje del chat, revisa si es correccion o texto nuevo y arma el pdf
+        // Recibe el mensaje del chat, revisa si es corrección o texto nuevo y arma el pdf
         [HttpPost("procesar")]
         public async Task<IActionResult> Procesar([FromBody] PeticionMemebrete peticion)
         {
@@ -40,7 +40,7 @@ namespace LuxmanErp.Controllers
                 string respuestaChat = "Listo, aquí está tu cotización en PDF. Los textos son editables directamente sobre el documento.";
                 bool fueCorregido = false;
 
-                // checamos si el usuario pidio corregir algo del documento anterior
+                // Checamos si el usuario pidió corregir algo del documento anterior
                 if (TextoCotizacionParser.EsCorreccion(peticion.Mensaje))
                 {
                     if (string.IsNullOrWhiteSpace(peticion.IdDocumentoActual))
@@ -87,7 +87,7 @@ namespace LuxmanErp.Controllers
             }
         }
 
-        // devuelve la lista de documentos guardados en mongo
+        // Devuelve la lista de documentos activos guardados en mongo
         [HttpGet]
         public async Task<IActionResult> Historial()
         {
@@ -101,7 +101,7 @@ namespace LuxmanErp.Controllers
             }
         }
 
-        // devuelve el archivo pdf por su id de mongo
+        // Devuelve el archivo pdf por su id de mongo
         [HttpGet("{id}/pdf")]
         public async Task<IActionResult> ObtenerPdf(string id, [FromQuery] bool descargar = false)
         {
@@ -122,6 +122,68 @@ namespace LuxmanErp.Controllers
             catch (Exception error)
             {
                 return StatusCode(500, "Error al obtener el PDF: " + error.Message);
+            }
+        }
+
+        // Mueve una cotización a la papelera (Soft Delete)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> MoverAPapelera(string id)
+        {
+            try
+            {
+                bool exito = await repositorio.MoverAPapeleraAsync(id);
+                if (!exito) return NotFound("No se encontró el documento especificado.");
+                return Ok(new { mensaje = "Cotización movida a la papelera." });
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al mover a la papelera: " + error.Message);
+            }
+        }
+
+        // Lista los documentos que están en la papelera
+        [HttpGet("papelera")]
+        public async Task<IActionResult> ListarPapelera()
+        {
+            try
+            {
+                return Ok(await repositorio.ListarPapeleraAsync());
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al consultar la papelera: " + error.Message);
+            }
+        }
+
+        // Restaura un documento desde la papelera al historial activo
+        [HttpPost("{id}/restaurar")]
+        public async Task<IActionResult> Restaurar(string id)
+        {
+            try
+            {
+                bool exito = await repositorio.RestaurarAsync(id);
+                if (!exito) return NotFound("No se encontró el documento especificado en la papelera.");
+                return Ok(new { mensaje = "Cotización restaurada exitosamente." });
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al restaurar la cotización: " + error.Message);
+            }
+        }
+
+        // Elimina definitivamente un documento de la base de datos
+        [HttpDelete("{id}/permanente")]
+        public async Task<IActionResult> EliminarPermanente(string id)
+        {
+            try
+            {
+                bool exito = await repositorio.EliminarPermanenteAsync(id);
+                if (!exito) return NotFound("No se encontró el documento a eliminar.");
+                return Ok(new { mensaje = "Cotización eliminada permanentemente." });
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al eliminar la cotización: " + error.Message);
             }
         }
 
