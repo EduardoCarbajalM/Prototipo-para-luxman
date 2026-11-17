@@ -15,10 +15,11 @@ import {
 } from "lucide-react";
 import "./LandingPage.css";
 
-// direccion del backend para guardar las cotizaciones
-const URL_API = "http://localhost:5294/api/cotizacion";
+// Dirección del backend para guardar las cotizaciones usando la ruta relativa para HTTPS/Nginx
+const URL_BASE = import.meta.env.VITE_API_URL || "";
+const URL_API = `${URL_BASE}/api/cotizacion`;
 
-// costos por litro y limite del tanque
+// Costos por litro y límite del tanque
 const PRECIO_LITRO_304 = 45.5;
 const PRECIO_LITRO_316 = 68.75;
 const COSTO_AGITACION = 8500.0;
@@ -47,13 +48,13 @@ function FormularioCotizacion({ alVolver }) {
   const [descargandoPdf, setDescargandoPdf] = useState(false);
   const [errorPdf, setErrorPdf] = useState("");
 
-  // calculamos el aproximado en vivo mientras el usuario escribe
+  // Calculamos el aproximado en vivo mientras el usuario escribe
   const litrosNumero = Math.max(0, parseFloat(litrosTanque) || 0);
   const precioPorLitro = tipoAcero === "304" ? PRECIO_LITRO_304 : PRECIO_LITRO_316;
   const precioBaseEstimado = litrosNumero * precioPorLitro;
   const totalEstimado = precioBaseEstimado + (tieneAgitacion ? COSTO_AGITACION : 0);
 
-  // pide el pdf al backend y fuerza la descarga en el navegador
+  // Pide el PDF al backend y fuerza la descarga en el navegador
   async function descargarPdfCotizacion(idCotizacion) {
     setDescargandoPdf(true);
     setErrorPdf("");
@@ -84,7 +85,7 @@ function FormularioCotizacion({ alVolver }) {
     }
   }
 
-  // evita que metan signos raros o negativos en el input
+  // Evita que metan signos raros o negativos en el input
   function bloquearTeclasInvalidas(evento) {
     if (["-", "+", "e", "E"].includes(evento.key)) {
       evento.preventDefault();
@@ -114,7 +115,7 @@ function FormularioCotizacion({ alVolver }) {
     setLitrosTanque(valor);
   }
 
-  // valida los datos y los manda por post al servidor
+  // Valida los datos y los manda por POST al servidor
   async function manejarEnvioFormulario(evento) {
     evento.preventDefault();
 
@@ -168,7 +169,7 @@ function FormularioCotizacion({ alVolver }) {
         error.message.includes("Failed to fetch") ||
         error.message.includes("NetworkError")
       ) {
-        setMensajeError("No se pudo conectar con el backend en http://localhost:5294. Verifica que el contenedor del backend esté corriendo.");
+        setMensajeError("No se pudo conectar con la API de Luxman. Verifica que el servicio del backend esté activo.");
       } else {
         setMensajeError(error.message);
       }
@@ -177,7 +178,7 @@ function FormularioCotizacion({ alVolver }) {
     }
   }
 
-  // por si el servidor esta apagado mostramos el calculo local
+  // Por si el servidor está apagado mostramos el cálculo local
   function activarEstimadoOffline() {
     setCotizacionCreada({
       idCotizacion: "DEMO-ESTIMADO",
@@ -432,7 +433,7 @@ function FormularioCotizacion({ alVolver }) {
                         <span className="small">{mensajeError}</span>
 
                         {litrosNumero > 0 &&
-                          mensajeError.includes("http://localhost:5294") && (
+                          mensajeError.includes("API de Luxman") && (
                             <div className="mt-3">
                               <button
                                 type="button"
