@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -34,7 +36,7 @@ services:
     build: ./luxman-frontend
     container_name: luxman_frontend_prod
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
 
