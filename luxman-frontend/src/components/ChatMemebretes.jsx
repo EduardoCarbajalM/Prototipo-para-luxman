@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import './ChatMemebretes.css';
 
-const URL_SERVIDOR = import.meta.env.VITE_API_URL || 'http://localhost:5294';
+// Usamos ruta relativa vacía para que las peticiones /api/ se envíen a la misma URL segura (HTTPS) servida por Nginx
+const URL_SERVIDOR = import.meta.env.VITE_API_URL || '';
 const ZOOM_MINIMO = 0.5;
 const ZOOM_MAXIMO = 2.5;
 const PASO_ZOOM = 0.25;
@@ -32,7 +33,7 @@ const MENSAJE_BIENVENIDA = {
   texto: 'Por favor inserta tu texto completo aquí',
 };
 
-// pide los bytes del pdf al backend y crea una url temporal para mostrarlo en el iframe
+// Pide los bytes del pdf al backend y crea una url temporal para mostrarlo en el iframe
 async function obtenerUrlPdf(idDocumento) {
   const respuesta = await fetch(`${URL_SERVIDOR}/api/memebretes/${idDocumento}/pdf`);
   if (!respuesta.ok) throw new Error('No se pudo cargar el PDF.');
@@ -53,7 +54,7 @@ function formatearFechaHora(fechaIso) {
   return new Date(fechaIso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-// componente para ver el pdf adentro del chat con botones de zoom y descarga
+// Componente para ver el pdf adentro del chat con botones de zoom y descarga
 function VisorPdf({ url, nombre }) {
   const [nivelZoom, setNivelZoom] = useState(1);
 
@@ -129,7 +130,7 @@ function VisorPdf({ url, nombre }) {
   );
 }
 
-// pestaña del chat para generar y corregir las cotizaciones
+// Pestaña del chat para generar y corregir las cotizaciones
 function VistaChat() {
   const [listaMensajes, setListaMensajes] = useState([MENSAJE_BIENVENIDA]);
   const [textoEntrada, setTextoEntrada] = useState('');
@@ -289,7 +290,7 @@ function VistaChat() {
   );
 }
 
-// pestaña para consultar todos los pdfs guardados en mongodb
+// Pestaña para consultar todos los pdfs guardados en mongodb
 function VistaHistorial() {
   const [documentos, setDocumentos] = useState(null);
   const [mensajeError, setMensajeError] = useState('');
@@ -442,7 +443,7 @@ export default function ChatMemebretes() {
             onClick={() => setPestanaActual('generar')}
           >
             <Sparkles size={16} strokeWidth={2} />
-            <span>1. Generar PDF</span>
+            <span>Generar PDF</span>
           </button>
           <button
             id="btn-historial"
