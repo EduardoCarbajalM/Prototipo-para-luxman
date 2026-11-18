@@ -9,6 +9,9 @@ import {
   Award,
   CheckCircle2,
   ArrowRight,
+  Mail,
+  Phone,
+  MapPin,
 } from 'lucide-react';
 import './LandingPage.css';
 
@@ -137,6 +140,17 @@ const LISTA_SECTORES = [
   'Petroquímica',
 ];
 
+// datos temporales de contacto (luego se cambian por los reales)
+const DATOS_CONTACTO = {
+  correo: 'ventas@equiposinoxidablesluxman.com',
+  telefono: '+52 55 1234 5678',
+  ubicacion: 'Planta Luxman, Zona Industrial, Ciudad de México, CDMX, México',
+};
+
+// mapa generico del Centro de CDMX (luego se cambia por la ubicacion real de la planta)
+const URL_MAPA =
+  'https://www.google.com/maps?q=Zocalo,Ciudad+de+Mexico&output=embed';
+
 const VARIANTES_CONTENEDOR = {
   oculto: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
@@ -147,7 +161,7 @@ const VARIANTES_TARJETA = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
 };
 
-function LandingPage({ alIrACotizador }) {
+function LandingPage({ alIrACotizador, alIrAAccesoAdmin }) {
   return (
     <div className="fondo-oscuro-gradiente">
       <nav className="navbar sticky-top navbar-cristal py-3">
@@ -298,7 +312,89 @@ function LandingPage({ alIrACotizador }) {
             <ArrowRight size={20} strokeWidth={2.2} />
           </button>
         </motion.section>
+
+        {/* ===== SECCIÓN DE CONTACTO: grid de Bootstrap (mitad texto, mitad mapa) ===== */}
+        <motion.section
+          id="contacto"
+          className="my-5 tarjeta-cristal overflow-hidden"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="row g-0">
+            {/* Mitad izquierda: información de contacto */}
+            <div className="col-md-6 p-4 p-lg-5 d-flex flex-column justify-content-center">
+              <span className="badge insignia-cristal align-self-start text-uppercase px-3 py-2 mb-3 rounded-pill">
+                Contacto
+              </span>
+              <h2 className="display-6 fw-bold text-dark mb-2">Hablemos de tu proyecto</h2>
+              <p className="text-secondary mb-4">
+                Nuestro equipo de ingeniería está listo para asesorarte en el diseño y
+                fabricación de tu equipo en acero inoxidable.
+              </p>
+
+              <div className="d-flex align-items-start gap-3 mb-3">
+                <Mail size={22} strokeWidth={2} className="text-primary flex-shrink-0 mt-1" />
+                <div>
+                  <h6 className="fw-bold text-dark mb-0">Correo</h6>
+                  <a
+                    href={`mailto:${DATOS_CONTACTO.correo}`}
+                    className="text-secondary text-decoration-none text-break"
+                  >
+                    {DATOS_CONTACTO.correo}
+                  </a>
+                </div>
+              </div>
+
+              <div className="d-flex align-items-start gap-3 mb-3">
+                <Phone size={22} strokeWidth={2} className="text-primary flex-shrink-0 mt-1" />
+                <div>
+                  <h6 className="fw-bold text-dark mb-0">Teléfono</h6>
+                  <span className="text-secondary">{DATOS_CONTACTO.telefono}</span>
+                </div>
+              </div>
+
+              <div className="d-flex align-items-start gap-3">
+                <MapPin size={22} strokeWidth={2} className="text-primary flex-shrink-0 mt-1" />
+                <div>
+                  <h6 className="fw-bold text-dark mb-0">Ubicación de la planta</h6>
+                  <span className="text-secondary">{DATOS_CONTACTO.ubicacion}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mitad derecha: mapa de Google Maps */}
+            <div className="col-md-6">
+              <iframe
+                title="Ubicación de la planta Luxman"
+                src={URL_MAPA}
+                className="w-100 h-100 border-0"
+                style={{ minHeight: '380px' }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          </div>
+        </motion.section>
       </div>
+
+      {/* ===== FOOTER con el botón discreto de acceso administrativo ===== */}
+      <footer className="border-top py-4">
+        <div className="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+          <small className="text-secondary">
+            © 2026 Equipos Inoxidables Luxman. Todos los derechos reservados.
+          </small>
+          <button
+            type="button"
+            onClick={alIrAAccesoAdmin}
+            className="btn btn-link btn-sm text-secondary text-decoration-none opacity-50"
+          >
+            Acceso Ing. Raúl
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }

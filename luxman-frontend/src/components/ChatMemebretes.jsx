@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import './ChatMemebretes.css';
 
-const URL_SERVIDOR = import.meta.env.VITE_API_URL || '';
+const URL_SERVIDOR = 'http://localhost:5294';
 const ZOOM_MINIMO = 0.5;
 const ZOOM_MAXIMO = 2.5;
 const PASO_ZOOM = 0.25;
@@ -36,7 +36,7 @@ const MENSAJE_BIENVENIDA = {
 };
 
 async function obtenerUrlPdf(idDocumento) {
-  const respuesta = await fetch(`${URL_SERVIDOR}/api/memebretes/${idDocumento}/pdf`);
+  const respuesta = await fetch(`http://localhost:5294/api/memebretes/${idDocumento}/pdf`);
   if (!respuesta.ok) throw new Error('No se pudo cargar el PDF.');
   return URL.createObjectURL(await respuesta.blob());
 }
@@ -171,7 +171,7 @@ function VistaChat() {
       );
 
     try {
-      const respuesta = await fetch(`${URL_SERVIDOR}/api/memebretes/procesar`, {
+      const respuesta = await fetch('http://localhost:5294/api/memebretes/procesar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mensaje: textoLimpio, idDocumentoActual: idDocumentoActivo }),
@@ -296,7 +296,7 @@ function VistaHistorial() {
   const [idCargando, setIdCargando] = useState(null);
 
   const cargarHistorial = useCallback(() => {
-    fetch(`${URL_SERVIDOR}/api/memebretes`)
+    fetch('http://localhost:5294/api/memebretes')
       .then(async (respuesta) => {
         if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
         return respuesta.json();
@@ -327,8 +327,11 @@ function VistaHistorial() {
   const moverAPapelera = async (id) => {
     if (!window.confirm('¿Deseas mover esta cotización a la papelera?')) return;
     try {
-      const res = await fetch(`${URL_SERVIDOR}/api/memebretes/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('No se pudo mover a la papelera.');
+      const res = await fetch(`http://localhost:5294/api/memebretes/${id}`, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!res.ok) throw new Error(await extraerMensajeError(res));
       if (documentoAbierto?.id === id) setDocumentoAbierto(null);
       cargarHistorial();
     } catch (err) {
@@ -446,7 +449,7 @@ function VistaPapelera() {
   const [mensajeError, setMensajeError] = useState('');
 
   const cargarPapelera = useCallback(() => {
-    fetch(`${URL_SERVIDOR}/api/memebretes/papelera`)
+    fetch('http://localhost:5294/api/memebretes/papelera')
       .then(async (respuesta) => {
         if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
         return respuesta.json();
@@ -461,8 +464,8 @@ function VistaPapelera() {
 
   const restaurarDocumento = async (id) => {
     try {
-      const res = await fetch(`${URL_SERVIDOR}/api/memebretes/${id}/restaurar`, { method: 'POST' });
-      if (!res.ok) throw new Error('No se pudo restaurar la cotización.');
+      const res = await fetch(`http://localhost:5294/api/memebretes/${id}/restaurar`, { method: 'POST' });
+      if (!res.ok) throw new Error(await extraerMensajeError(res));
       cargarPapelera();
     } catch (err) {
       alert(err.message);
@@ -472,8 +475,8 @@ function VistaPapelera() {
   const eliminarPermanente = async (id) => {
     if (!window.confirm('¿Esta acción eliminará el PDF definitivamente. ¿Continuar?')) return;
     try {
-      const res = await fetch(`${URL_SERVIDOR}/api/memebretes/${id}/permanente`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('No se pudo eliminar el archivo.');
+      const res = await fetch(`http://localhost:5294/api/memebretes/${id}/permanente`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(await extraerMensajeError(res));
       cargarPapelera();
     } catch (err) {
       alert(err.message);
