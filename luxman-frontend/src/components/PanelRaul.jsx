@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import FormularioCotizacion from './FormularioCotizacion';
 import ChatMemebretes from './ChatMemebretes';
+import { URL_BASE, obtenerTokenAdmin } from '../api';
 
 // ---------- DATOS TEMPORALES DEL LEAD SCORING ----------
 const LISTA_LEADS = [
@@ -126,6 +127,178 @@ function DirectorioCRM() {
                 <tr>
                   <td colSpan="6" className="text-center text-secondary py-4">
                     No hay leads con esos filtros.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- SUBMÓDULO: SOLICITUDES WEB (formulario de la landing) ----------
+function SolicitudesWeb({ alSesionExpirada }) {
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+  const [filtro, setFiltro] = useState('pendientes');
+
+  const cabeceras = () => ({
+    'Content-Type': 'application/json',
+    'X-Admin-Token': obtenerTokenAdmin(),
+  });
+
+  const cargar = useCallback(async () => {
+    try {
+      const respuesta = await fetch(`${URL_BASE}/api/solicitudes`, { headers: cabeceras() });
+      if (respuesta.status === 401) {
+        alSesionExpirada();
+        return;
+      }
+      if (!respuesta.ok) throw new Error();
+      setSolicitudes(await respuesta.json());
+      setError('');
+    } catch {
+      setError('No se pudieron cargar las solicitudes. Verifica la conexión con el servidor.');
+    } finally {
+      setCargando(false);
+    }
+  }, [alSesionExpirada]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  const cambiarAtendida = async (solicitud) => {
+    const nuevoValor = !solicitud.atendida;
+    try {
+      const respuesta = await fetch(
+        `${URL_BASE}/api/solicitudes/${solicitud.idSolicitud}/atendida`,
+        { method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ atendida: nuevoValor }) }
+      );
+      if (respuesta.status === 401) {
+        alSesionExpirada();
+        return;
+      }
+      if (!respuesta.ok) throw new Error();
+      setSolicitudes((anteriores) =>
+        anteriores.map((s) =>
+          s.idSolicitud === solicitud.idSolicitud ? { ...s, atendida: nuevoValor } : s
+        )
+      );
+    } catch {
+      setError('No se pudo actualizar la solicitud.');
+    }
+  };
+
+  const visibles = solicitudes.filter((s) => {
+    if (filtro === 'pendientes') return !s.atendida;
+    if (filtro === 'atendidas') return s.atendida;
+    return true;
+  });
+  const totalPendientes = solicitudes.filter((s) => !s.atendida).length;
+
+  return (
+    <div className="p-4">
+      <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+          <h3 className="fw-bold mb-1">Solicitudes Web</h3>
+          <p className="text-secondary mb-0">
+            Interesados en cotizar que dejaron sus datos en la landing page.
+            {' '}
+            <strong>{totalPendientes}</strong> pendiente{totalPendientes === 1 ? '' : 's'}.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={() => {
+            setCargando(true);
+            cargar();
+          }}
+        >
+          Actualizar
+        </button>
+      </div>
+
+      <div className="btn-group mb-3" role="group" aria-label="Filtro de solicitudes">
+        {[
+          ['pendientes', 'Pendientes'],
+          ['atendidas', 'Atendidas'],
+          ['todas', 'Todas'],
+        ].map(([valor, texto]) => (
+          <button
+            key={valor}
+            type="button"
+            className={`btn btn-sm ${filtro === valor ? 'btn-dark' : 'btn-outline-dark'}`}
+            onClick={() => setFiltro(valor)}
+          >
+            {texto}
+          </button>
+        ))}
+      </div>
+
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      <div className="card shadow-sm">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0">
+            <thead className="table-dark">
+              <tr>
+                <th>Fecha</th>
+                <th>Nombre</th>
+                <th>Empresa</th>
+                <th>Contacto</th>
+                <th>Equipo</th>
+                <th style={{ minWidth: '220px' }}>Mensaje</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cargando && (
+                <tr>
+                  <td colSpan="7" className="text-center text-secondary py-4">
+                    Cargando solicitudes...
+                  </td>
+                </tr>
+              )}
+              {!cargando &&
+                visibles.map((s) => (
+                  <tr key={s.idSolicitud}>
+                    <td className="small text-nowrap">
+                      {new Date(s.fechaCreacion + 'Z').toLocaleString('es-MX', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })}
+                    </td>
+                    <td className="fw-semibold">{s.nombre}</td>
+                    <td>{s.empresa || <span className="text-secondary">—</span>}</td>
+                    <td className="small">
+                      <a href={`mailto:${s.correo}`} className="d-block text-break">{s.correo}</a>
+                      <a href={`tel:${s.telefono}`}>{s.telefono}</a>
+                    </td>
+                    <td className="small">{s.tipoEquipo || <span className="text-secondary">—</span>}</td>
+                    <td className="small" style={{ whiteSpace: 'pre-wrap' }}>
+                      {s.mensaje || <span className="text-secondary">—</span>}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => cambiarAtendida(s)}
+                        className={`btn btn-sm ${s.atendida ? 'btn-success' : 'btn-outline-warning'}`}
+                        title="Cambiar estado"
+                      >
+                        {s.atendida ? 'Atendida' : 'Pendiente'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              {!cargando && visibles.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="text-center text-secondary py-4">
+                    No hay solicitudes en esta vista.
                   </td>
                 </tr>
               )}
@@ -349,6 +522,7 @@ function PanelRaul({ alCerrarSesion }) {
 
   const opcionesMenu = [
     { id: 'crm', texto: 'Directorio CRM' },
+    { id: 'solicitudes', texto: 'Solicitudes Web' },
     { id: 'cotizador', texto: 'Cotizador Técnico' },
     { id: 'acta', texto: 'Acta de Entrega Logística' },
     { id: 'memebretes', texto: 'Generador de Membretes (Regex)' },
@@ -395,6 +569,7 @@ function PanelRaul({ alCerrarSesion }) {
           transition={{ duration: 0.4 }}
         >
           {submoduloActual === 'crm' && <DirectorioCRM />}
+          {submoduloActual === 'solicitudes' && <SolicitudesWeb alSesionExpirada={alCerrarSesion} />}
           {submoduloActual === 'cotizador' && <FormularioCotizacion />}
           {submoduloActual === 'acta' && <ActaEntrega />}
           {submoduloActual === 'memebretes' && <ChatMemebretes />}

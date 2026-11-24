@@ -276,3 +276,8 @@
   color: #166534;
   border-radius: 0.85rem;
 }
+
+
+/* Spinner del botón de envío del formulario de contacto */
+.spin { animation: giro-formulario 1s linear infinite; }
+@keyframes giro-formulario { to { transform: rotate(360deg); } }

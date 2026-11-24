@@ -4,16 +4,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  Calculator,
   Layers,
   Award,
   CheckCircle2,
-  ArrowRight,
   Mail,
   Phone,
   MapPin,
+  Send,
 } from 'lucide-react';
 import './LandingPage.css';
+import FormularioContacto from './FormularioContacto';
 
 // componente para pasar las fotos de cada equipo en las tarjetas
 const CarruselImagenes = ({ imagenes }) => {
@@ -161,7 +161,7 @@ const VARIANTES_TARJETA = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
 };
 
-function LandingPage({ alIrACotizador, alIrAAccesoAdmin }) {
+function LandingPage({ alIrAAccesoAdmin }) {
   return (
     <div className="fondo-oscuro-gradiente">
       <nav className="navbar sticky-top navbar-cristal py-3">
@@ -182,13 +182,6 @@ function LandingPage({ alIrACotizador, alIrAAccesoAdmin }) {
           <span className="text-secondary small d-none d-md-inline fw-medium">
             Equipos Inoxidables • Maestría Industrial
           </span>
-          <button
-            onClick={alIrACotizador}
-            className="btn btn-secundario-claro btn-sm rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2"
-          >
-            <Calculator size={16} strokeWidth={2} />
-            <span>Acceso Cotizador</span>
-          </button>
         </div>
       </nav>
 
@@ -212,20 +205,19 @@ function LandingPage({ alIrACotizador, alIrAAccesoAdmin }) {
               ingeniería y fabricación de tanques y sistemas de proceso en acero inoxidable 304 y 316.
             </p>
             <div className="d-flex justify-content-center gap-3 flex-wrap">
-              <button
-                type="button"
-                onClick={alIrACotizador}
-                className="btn btn-verde-esmeralda btn-lg px-4 rounded-pill d-inline-flex align-items-center gap-2"
-              >
-                <Calculator size={18} strokeWidth={2} />
-                <span>Cotizar Tanque Ahora</span>
-              </button>
               <a
                 href="#catalogo"
                 className="btn btn-secundario-claro btn-lg px-4 rounded-pill d-inline-flex align-items-center gap-2"
               >
                 <Layers size={18} strokeWidth={2} />
                 <span>Ver Catálogo</span>
+              </a>
+              <a
+                href="#solicitar-contacto"
+                className="btn btn-verde-esmeralda btn-lg px-4 rounded-pill d-inline-flex align-items-center gap-2"
+              >
+                <Send size={18} strokeWidth={2} />
+                <span>Solicitar Cotización</span>
               </a>
             </div>
           </div>
@@ -290,28 +282,7 @@ function LandingPage({ alIrACotizador, alIrAAccesoAdmin }) {
           </div>
         </motion.section>
 
-        <motion.section
-          className="text-center my-5 py-5 tarjeta-cristal p-4"
-          initial={{ opacity: 0, scale: 0.96 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        >
-          <h2 className="display-6 fw-bold text-dark mb-3">
-            ¿Requieres una cotización inmediata?
-          </h2>
-          <p className="lead text-secondary mx-auto col-md-8 mb-4 fs-5">
-            Ingresa a nuestra plataforma interna y obtén un estimado ajustado a los litros,
-            tipo de acero y requerimientos de agitación de tu empresa.
-          </p>
-          <button
-            onClick={alIrACotizador}
-            className="btn btn-verde-esmeralda btn-lg rounded-pill mt-2 px-5 py-3 fs-5 fw-bold d-inline-flex align-items-center gap-2"
-          >
-            <span>Ir al Cotizador Interno</span>
-            <ArrowRight size={20} strokeWidth={2.2} />
-          </button>
-        </motion.section>
+        <FormularioContacto />
 
         {/* ===== SECCIÓN DE CONTACTO: grid de Bootstrap (mitad texto, mitad mapa) ===== */}
         <motion.section

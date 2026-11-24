@@ -1,29 +1,47 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-
-// PIN temporal de prueba (después se valida contra el backend)
-const PIN_CORRECTO = '12345';
+import { URL_BASE, guardarTokenAdmin } from '../api';
 
 function AccesoAdmin({ alAccesoCorrecto, alVolver }) {
   const [pin, setPin] = useState('');
-  const [mostrarError, setMostrarError] = useState(false);
+  const [mensajeError, setMensajeError] = useState('');
+  const [validando, setValidando] = useState(false);
+  const mostrarError = mensajeError !== '';
 
   // Solo deja escribir números y máximo 5 dígitos
   const manejarCambioPin = (evento) => {
     const soloNumeros = evento.target.value.replace(/\D/g, '').slice(0, 5);
     setPin(soloNumeros);
-    setMostrarError(false);
+    setMensajeError('');
   };
 
-  const manejarEnvio = (evento) => {
+  // El PIN se valida en el servidor, que devuelve un token de sesión
+  const manejarEnvio = async (evento) => {
     evento.preventDefault();
+    setValidando(true);
 
-    if (pin === PIN_CORRECTO) {
-      // Le avisa a App.jsx que cambie el estado para mostrar el Panel
-      alAccesoCorrecto();
-    } else {
-      setMostrarError(true);
-      setPin('');
+    try {
+      const respuesta = await fetch(`${URL_BASE}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+
+      if (respuesta.status === 401) {
+        setMensajeError('PIN incorrecto. Inténtalo de nuevo.');
+        setPin('');
+      } else if (!respuesta.ok) {
+        setMensajeError('Error del servidor. Inténtalo más tarde.');
+      } else {
+        const { token } = await respuesta.json();
+        guardarTokenAdmin(token);
+        // Le avisa a App.jsx que cambie el estado para mostrar el Panel
+        alAccesoCorrecto();
+      }
+    } catch {
+      setMensajeError('No se pudo conectar con el servidor.');
+    } finally {
+      setValidando(false);
     }
   };
 
@@ -70,16 +88,16 @@ function AccesoAdmin({ alAccesoCorrecto, alVolver }) {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
               >
-                PIN incorrecto. Inténtalo de nuevo.
+                {mensajeError}
               </motion.div>
             )}
 
             <button
               type="submit"
               className="btn btn-primary btn-lg w-100 fw-bold mb-2"
-              disabled={pin.length !== 5}
+              disabled={pin.length !== 5 || validando}
             >
-              Ingresar
+              {validando ? 'Validando...' : 'Ingresar'}
             </button>
 
             <button

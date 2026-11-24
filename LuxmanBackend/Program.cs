@@ -11,6 +11,8 @@ constructor.Services.AddControllers();
 // registramos los servicios de las cotizaciones y de mongo
 constructor.Services.AddScoped<CotizacionService>();
 constructor.Services.AddScoped<PdfService>();
+constructor.Services.AddScoped<SolicitudContactoService>();
+constructor.Services.AddSingleton<AdminAuthService>();
 constructor.Services.AddSingleton<MemebreteRepository>();
 constructor.Services.AddSingleton<MemebretePdfService>();
 
