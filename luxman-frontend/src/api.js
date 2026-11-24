@@ -1,5 +1,5 @@
-// Dirección base del backend: VITE_API_URL si existe; si no, el mismo host de la página en el puerto 5294
-export const URL_BASE = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5294`;
+// Dirección base del backend: VITE_API_URL si existe; si no, cadena vacía para rutas relativas (/api/...)
+export const URL_BASE = import.meta.env.VITE_API_URL || '';
 
 const CLAVE_TOKEN = 'luxman_admin_token';
 
