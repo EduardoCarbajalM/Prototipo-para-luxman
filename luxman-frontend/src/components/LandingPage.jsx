@@ -140,16 +140,16 @@ const LISTA_SECTORES = [
   'Petroquímica',
 ];
 
-// datos temporales de contacto (luego se cambian por los reales)
+// Datos de contacto y dirección oficial || Agregado por Dani
 const DATOS_CONTACTO = {
-  correo: 'ventas@equiposinoxidablesluxman.com',
-  telefono: '+52 55 1234 5678',
-  ubicacion: 'Planta Luxman, Zona Industrial, Ciudad de México, CDMX, México',
+  correo: 'equipos@luxman.tech',
+  telefono: '+52 1 55 3027 9919',
+  ubicacion: 'Av. Guadiana 203, Valle de Aragón 3A Sección, Ecatepec, Estado de México, C.P. 55280',
 };
 
-// mapa generico del Centro de CDMX (luego se cambia por la ubicacion real de la planta)
+// Ubicación exacta en Google Maps
 const URL_MAPA =
-  'https://www.google.com/maps?q=Zocalo,Ciudad+de+Mexico&output=embed';
+  'https://www.google.com/maps?q=Av.+Guadiana+203,+Valle+de+Arag%C3%B3n+3a+Secc,+55280+Ecatepec+de+Morelos,+M%C3%A9x.&output=embed';
 
 const VARIANTES_CONTENEDOR = {
   oculto: { opacity: 0 },
