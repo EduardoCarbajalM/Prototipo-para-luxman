@@ -523,7 +523,7 @@ function PanelRaul({ alCerrarSesion }) {
   const [submoduloActual, setSubmoduloActual] = useState('cotizador');
 
   const opcionesMenu = [
-    { id: 'cotizador', texto: 'Cotizador Técnico' },
+    { id: 'cotizador', texto: 'Calculadora Técnica' },
     { id: 'crm', texto: 'Directorio CRM' },
     { id: 'solicitudes', texto: 'Solicitudes Web' },
     { id: 'acta', texto: 'Acta de Entrega Logística' },
