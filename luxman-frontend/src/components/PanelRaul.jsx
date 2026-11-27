@@ -519,13 +519,13 @@ function ActaEntrega() {
 
 // ---------- CONTENEDOR PRINCIPAL DEL PANEL ----------
 function PanelRaul({ alCerrarSesion }) {
-  // Estado simple para elegir el submódulo (igual que vistaActual en App.jsx)
-  const [submoduloActual, setSubmoduloActual] = useState('crm');
+  // Pestaña activa por defecto: Cotizador Técnico
+  const [submoduloActual, setSubmoduloActual] = useState('cotizador');
 
   const opcionesMenu = [
+    { id: 'cotizador', texto: 'Cotizador Técnico' },
     { id: 'crm', texto: 'Directorio CRM' },
     { id: 'solicitudes', texto: 'Solicitudes Web' },
-    { id: 'cotizador', texto: 'Cotizador Técnico' },
     { id: 'acta', texto: 'Acta de Entrega Logística' },
     { id: 'memebretes', texto: 'Generador de Membretes (Regex)' },
   ];
@@ -570,9 +570,9 @@ function PanelRaul({ alCerrarSesion }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
+          {submoduloActual === 'cotizador' && <FormularioCotizacion />}
           {submoduloActual === 'crm' && <DirectorioCRM />}
           {submoduloActual === 'solicitudes' && <SolicitudesWeb alSesionExpirada={alCerrarSesion} />}
-          {submoduloActual === 'cotizador' && <FormularioCotizacion />}
           {submoduloActual === 'acta' && <ActaEntrega />}
           {submoduloActual === 'memebretes' && <ChatMemebretes />}
         </motion.div>

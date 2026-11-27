@@ -37,8 +37,29 @@ namespace LuxmanErp.Models
         [JsonPropertyName("id_cliente")]
         public int? IdCliente { get; set; }
 
+        [JsonPropertyName("radio_m")]
+        public decimal RadioM { get; set; }
+
+        [JsonPropertyName("longitud_m")]
+        public decimal LongitudM { get; set; }
+
+        [JsonPropertyName("tipo_fondo")]
+        public string TipoFondo { get; set; } = "Plano";
+
+        [JsonPropertyName("diametro_m")]
+        public decimal DiametroM { get; set; }
+
+        [JsonPropertyName("volumen_m3")]
+        public decimal VolumenM3 { get; set; }
+
         [JsonPropertyName("litros_tanque")]
         public decimal LitrosTanque { get; set; }
+
+        [JsonPropertyName("perimetro_m")]
+        public decimal PerimetroM { get; set; }
+
+        [JsonPropertyName("area_lamina_m2")]
+        public decimal AreaLaminaM2 { get; set; }
 
         [JsonPropertyName("tipo_acero")]
         public string? TipoAcero { get; set; }
@@ -59,14 +80,35 @@ namespace LuxmanErp.Models
         public DateTime FechaCreacion { get; set; }
     }
 
-    // clase para recibir los datos que manda el usuario desde el formulario
+    // clase para recibir los datos que manda el director desde la calculadora tecnica
     public class CotizacionRequestDTO
     {
         [JsonPropertyName("id_cliente")]
         public int? IdCliente { get; set; }
 
+        [JsonPropertyName("radio_m")]
+        public decimal RadioM { get; set; }
+
+        [JsonPropertyName("longitud_m")]
+        public decimal LongitudM { get; set; }
+
+        [JsonPropertyName("tipo_fondo")]
+        public string? TipoFondo { get; set; }
+
+        [JsonPropertyName("diametro_m")]
+        public decimal DiametroM { get; set; }
+
+        [JsonPropertyName("volumen_m3")]
+        public decimal VolumenM3 { get; set; }
+
         [JsonPropertyName("litros_tanque")]
         public decimal LitrosTanque { get; set; }
+
+        [JsonPropertyName("perimetro_m")]
+        public decimal PerimetroM { get; set; }
+
+        [JsonPropertyName("area_lamina_m2")]
+        public decimal AreaLaminaM2 { get; set; }
 
         [JsonPropertyName("tipo_acero")]
         public string? TipoAcero { get; set; }

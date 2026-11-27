@@ -27,15 +27,15 @@ BEGIN
                     plpy.error("Los litros del tanque deben ser mayores a cero")
 
                 if tipo_acero == '304':
-                    precio_base = litros * precio_litro_304
+                    precio_base = round(litros * precio_litro_304, 2)
                 elif tipo_acero == '316':
-                    precio_base = litros * precio_litro_316
+                    precio_base = round(litros * precio_litro_316, 2)
                 else:
                     plpy.error("Tipo de acero no valido, solo 304 o 316")
 
                 extra_agitacion = 8500.00 if tiene_agitacion else 0.0
                 TD["new"]["precio_base"] = precio_base
-                TD["new"]["precio_final"] = precio_base + extra_agitacion
+                TD["new"]["precio_final"] = round(precio_base + extra_agitacion, 2)
                 return "MODIFY"
             $func$ LANGUAGE plpython3u;
         $py$;
@@ -63,8 +63,8 @@ BEGIN
                     extra_agitacion := 8500.00;
                 END IF;
 
-                NEW.precio_base := NEW.litros_tanque * precio_litro;
-                NEW.precio_final := NEW.precio_base + extra_agitacion;
+                NEW.precio_base := ROUND(NEW.litros_tanque * precio_litro, 2);
+                NEW.precio_final := ROUND(NEW.precio_base + extra_agitacion, 2);
                 RETURN NEW;
             END;
             $func$ LANGUAGE plpgsql;
