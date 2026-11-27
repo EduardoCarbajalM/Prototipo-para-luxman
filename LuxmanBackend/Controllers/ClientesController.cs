@@ -49,5 +49,21 @@ namespace LuxmanErp.Controllers
                 return StatusCode(500, "Error al guardar el cliente: " + error.Message);
             }
         }
+
+        [HttpDelete("{id_cliente}")]
+        public IActionResult Eliminar(int id_cliente)
+        {
+            try
+            {
+                bool eliminado = servicioClientes.Eliminar(id_cliente);
+                if (!eliminado)
+                    return NotFound("No se encontró el cliente especificado.");
+                return Ok(new RespuestaMensajeDTO { Mensaje = "Cliente eliminado correctamente." });
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al eliminar el cliente: " + error.Message);
+            }
+        }
     }
 }

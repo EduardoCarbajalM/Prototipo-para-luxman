@@ -194,13 +194,9 @@ function FormularioCotizacion({ alVolver }) {
   const [clientes, setClientes] = useState([]);
   const [id_cliente, setIdCliente] = useState("");
   const [mostrandoNuevoCliente, setMostrandoNuevoCliente] = useState(false);
-  const [nuevoCliente, setNuevoCliente] = useState({
-    nombre_cliente: "",
-    rfc_cliente: "",
-    telefono: "",
-    correo: "",
-  });
+  const [nuevoCliente, setNuevoCliente] = useState({ nombre_cliente: "" });
   const [guardandoCliente, setGuardandoCliente] = useState(false);
+  const [eliminandoCliente, setEliminandoCliente] = useState(false);
   const [errorCliente, setErrorCliente] = useState("");
   const [notas, setNotas] = useState("");
 
@@ -423,11 +419,11 @@ function FormularioCotizacion({ alVolver }) {
     setUltimoGuardado(null);
   }
 
-  // ===== CREAR NUEVO CLIENTE EN POSTGRESQL (POST /api/clientes) =====
+  // ===== CREAR Y ELIMINAR CLIENTE EN POSTGRESQL (/api/clientes) =====
   async function manejarGuardarNuevoCliente(evento) {
     evento.preventDefault();
     if (!nuevoCliente.nombre_cliente.trim()) {
-      setErrorCliente("Escribe el nombre o razón social del cliente.");
+      setErrorCliente("Escribe el nombre del cliente.");
       return;
     }
 
@@ -437,7 +433,7 @@ function FormularioCotizacion({ alVolver }) {
       const respuesta = await fetch(URL_API_CLIENTES, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nuevoCliente),
+        body: JSON.stringify({ nombre_cliente: nuevoCliente.nombre_cliente.trim() }),
       });
 
       if (!respuesta.ok) {
@@ -453,12 +449,42 @@ function FormularioCotizacion({ alVolver }) {
         );
       });
       setIdCliente(String(creado.id_cliente));
-      setNuevoCliente({ nombre_cliente: "", rfc_cliente: "", telefono: "", correo: "" });
+      setNuevoCliente({ nombre_cliente: "" });
       setMostrandoNuevoCliente(false);
     } catch (err) {
       setErrorCliente(err.message || "Error de conexión al guardar el cliente.");
     } finally {
       setGuardandoCliente(false);
+    }
+  }
+
+  async function manejarEliminarCliente() {
+    if (!id_cliente) return;
+    const seleccionado = clientes.find((c) => String(c.id_cliente) === String(id_cliente));
+    const nombreMostrar = seleccionado?.nombre_cliente || "este cliente";
+    if (!window.confirm(`¿Eliminar definitivamente a "${nombreMostrar}" del catálogo de clientes?`)) {
+      return;
+    }
+
+    setEliminandoCliente(true);
+    setErrorCliente("");
+    try {
+      const respuesta = await fetch(`${URL_API_CLIENTES}/${id_cliente}`, {
+        method: "DELETE",
+      });
+
+      if (!respuesta.ok) {
+        const txt = await respuesta.text();
+        throw new Error(txt || "No se pudo eliminar el cliente.");
+      }
+
+      setClientes((prev) => prev.filter((c) => String(c.id_cliente) !== String(id_cliente)));
+      setIdCliente("");
+      await cargarHistorial();
+    } catch (err) {
+      setErrorCliente(err.message || "Error al eliminar el cliente.");
+    } finally {
+      setEliminandoCliente(false);
     }
   }
 
@@ -1310,21 +1336,39 @@ function FormularioCotizacion({ alVolver }) {
                     </button>
                   </div>
 
-                  <select
-                    id="select-id-cliente"
-                    name="id_cliente"
-                    className="form-select"
-                    value={id_cliente}
-                    onChange={(e) => setIdCliente(e.target.value)}
-                  >
-                    <option value="">— Sin cliente específico (uso interno) —</option>
-                    {clientes.map((cl) => (
-                      <option key={cl.id_cliente} value={cl.id_cliente}>
-                        {cl.nombre_cliente}
-                        {cl.rfc_cliente ? ` (${cl.rfc_cliente})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="d-flex gap-2">
+                    <select
+                      id="select-id-cliente"
+                      name="id_cliente"
+                      className="form-select"
+                      value={id_cliente}
+                      onChange={(e) => {
+                        setIdCliente(e.target.value);
+                        setErrorCliente("");
+                      }}
+                    >
+                      <option value="">— Sin cliente específico (uso interno) —</option>
+                      {clientes.map((cl) => (
+                        <option key={cl.id_cliente} value={cl.id_cliente}>
+                          {cl.nombre_cliente}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!id_cliente || eliminandoCliente}
+                      onClick={manejarEliminarCliente}
+                      className="btn btn-outline-danger text-nowrap d-inline-flex align-items-center gap-1"
+                      title="Eliminar el cliente seleccionado del catálogo"
+                    >
+                      <Trash2 size={15} />
+                      <span>{eliminandoCliente ? "Eliminando..." : "Eliminar cliente"}</span>
+                    </button>
+                  </div>
+                  {!mostrandoNuevoCliente && errorCliente && (
+                    <div className="text-danger small mt-1">{errorCliente}</div>
+                  )}
                 </div>
 
                 <div className="col-md-6">
@@ -1343,67 +1387,34 @@ function FormularioCotizacion({ alVolver }) {
                 </div>
               </div>
 
-              {/* Formulario inline para registrar + Nuevo cliente en PostgreSQL */}
+              {/* Formulario inline simplificado: solo Nombre del cliente (nombre_cliente) */}
               {mostrandoNuevoCliente && (
                 <div className="bg-light border rounded-3 p-3 mb-3">
-                  <h6 className="fw-bold text-dark small mb-2">Registrar nuevo cliente en catálogo</h6>
-                  <div className="row g-2">
-                    <div className="col-md-4">
-                      <input
-                        type="text"
-                        maxLength={150}
-                        className="form-control form-control-sm"
-                        placeholder="Razón social / Nombre *"
-                        value={nuevoCliente.nombre_cliente}
-                        onChange={(e) =>
-                          setNuevoCliente((prev) => ({ ...prev, nombre_cliente: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="col-md-3">
-                      <input
-                        type="text"
-                        maxLength={20}
-                        className="form-control form-control-sm"
-                        placeholder="RFC (opcional)"
-                        value={nuevoCliente.rfc_cliente}
-                        onChange={(e) =>
-                          setNuevoCliente((prev) => ({ ...prev, rfc_cliente: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="col-md-2">
-                      <input
-                        type="text"
-                        maxLength={20}
-                        className="form-control form-control-sm"
-                        placeholder="Teléfono"
-                        value={nuevoCliente.telefono}
-                        onChange={(e) =>
-                          setNuevoCliente((prev) => ({ ...prev, telefono: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="col-md-3 d-flex gap-2">
-                      <input
-                        type="email"
-                        maxLength={150}
-                        className="form-control form-control-sm"
-                        placeholder="Correo"
-                        value={nuevoCliente.correo}
-                        onChange={(e) =>
-                          setNuevoCliente((prev) => ({ ...prev, correo: e.target.value }))
-                        }
-                      />
-                      <button
-                        type="button"
-                        disabled={guardandoCliente}
-                        onClick={manejarGuardarNuevoCliente}
-                        className="btn btn-success btn-sm text-nowrap"
-                      >
-                        {guardandoCliente ? "..." : "Guardar"}
-                      </button>
-                    </div>
+                  <label
+                    htmlFor="input-nuevo-nombre-cliente"
+                    className="form-label fw-bold text-dark small mb-2"
+                  >
+                    Registrar nuevo cliente en catálogo — Nombre del cliente
+                  </label>
+                  <div className="d-flex gap-2">
+                    <input
+                      id="input-nuevo-nombre-cliente"
+                      name="nombre_cliente"
+                      type="text"
+                      maxLength={150}
+                      className="form-control form-control-sm"
+                      placeholder="Nombre del cliente *"
+                      value={nuevoCliente.nombre_cliente}
+                      onChange={(e) => setNuevoCliente({ nombre_cliente: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      disabled={guardandoCliente}
+                      onClick={manejarGuardarNuevoCliente}
+                      className="btn btn-success btn-sm px-3 text-nowrap"
+                    >
+                      {guardandoCliente ? "Guardando..." : "Guardar"}
+                    </button>
                   </div>
                   {errorCliente && <div className="text-danger small mt-2">{errorCliente}</div>}
                 </div>

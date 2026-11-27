@@ -419,64 +419,86 @@ function Planos({
     descargarArchivo(documentoXml, "image/svg+xml;charset=utf-8", "svg");
   };
 
+  // Serializa únicamente el <svg> del plano y lo imprime desde un iframe aislado en hoja horizontal
   const manejarImprimirPlano = () => {
-    window.print();
+    if (!svgRef.current) return;
+
+    const serializador = new XMLSerializer();
+    let codigoSvg = serializador.serializeToString(svgRef.current);
+    if (!codigoSvg.includes('xmlns="http://www.w3.org/2000/svg"')) {
+      codigoSvg = codigoSvg.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    // Quitamos estilos inline de ancho mínimo de pantalla para que escale exacto a la hoja horizontal
+    codigoSvg = codigoSvg.replace(/min-width:\s*760px;?/gi, "");
+
+    const iframePrevio = document.getElementById("luxman-iframe-impresion-plano");
+    if (iframePrevio) iframePrevio.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "luxman-iframe-impresion-plano";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const tituloDoc = `Plano_Luxman_${diametro_mm}x${longitud_mm}mm`;
+    const docImpresion = iframe.contentWindow?.document;
+    if (!docImpresion) return;
+
+    docImpresion.open();
+    docImpresion.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>${tituloDoc}</title>
+  <style>
+    @page {
+      size: landscape;
+      margin: 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      background: #ffffff;
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 100vh;
+      margin: 0 auto;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+  ${codigoSvg}
+</body>
+</html>`);
+    docImpresion.close();
+
+    setTimeout(() => {
+      if (!iframe.contentWindow) return;
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }, 150);
   };
 
   return (
     <div>
-      {/* Estilos exclusivos @media print para imprimir solo el plano y cajetín en horizontal */}
-      <style>{`
-        @media print {
-          @page {
-            size: landscape;
-            margin: 6mm;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            height: auto !important;
-            overflow: visible !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          aside,
-          nav,
-          .nav-tabs,
-          .no-imprimir-plano {
-            display: none !important;
-          }
-          main,
-          .min-vh-100,
-          .row {
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            overflow: visible !important;
-          }
-          #luxman-area-impresion-plano {
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 auto !important;
-            width: 100% !important;
-            overflow: visible !important;
-          }
-          #luxman-area-impresion-plano svg {
-            width: 100% !important;
-            max-height: 192mm !important;
-            min-width: 0 !important;
-            height: auto !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-        }
-      `}</style>
-
       {/* Barra superior de acciones CAD */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 p-3 bg-white rounded-3 border shadow-sm no-imprimir-plano">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 p-3 bg-white rounded-3 border shadow-sm">
         <div className="d-flex align-items-center gap-2">
           <Layers size={22} className="text-primary" />
           <div>

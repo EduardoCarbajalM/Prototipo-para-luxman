@@ -6,7 +6,7 @@ using LuxmanErp.Models;
 
 namespace LuxmanErp.Services
 {
-    // servicio para gestionar el catalogo real de clientes en postgres y precargar clientes base
+    // servicio para gestionar el catalogo real de clientes en postgres
     public class ClienteService
     {
         private readonly string cadenaConexion;
@@ -24,7 +24,7 @@ namespace LuxmanErp.Services
                 ?? throw new InvalidOperationException("No se encontro la cadena de conexion en el appsettings.");
         }
 
-        // asegura que la tabla clientes exista y que esten precargados los clientes iniciales
+        // asegura que la tabla clientes exista y aplica la precarga inicial una sola vez
         public static void AsegurarTablaYSemilla(NpgsqlConnection conexion)
         {
             using (var crear = new NpgsqlCommand(@"
@@ -36,22 +36,43 @@ namespace LuxmanErp.Services
                     correo          VARCHAR(150),
                     tiene_descuento BOOLEAN DEFAULT FALSE,
                     fecha_alta      TIMESTAMP DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS control_semillas (
+                    clave          VARCHAR(80) PRIMARY KEY,
+                    fecha_aplicada TIMESTAMP DEFAULT NOW()
                 );", conexion))
             {
                 crear.ExecuteNonQuery();
             }
 
-            foreach (string nombreSemilla in ClientesSemilla)
+            bool yaAplicada;
+            using (var verificar = new NpgsqlCommand(
+                "SELECT 1 FROM control_semillas WHERE clave = 'clientes_iniciales_luxman_v1' LIMIT 1;", conexion))
             {
-                using var insertarSemilla = new NpgsqlCommand(@"
-                    INSERT INTO clientes (nombre_cliente)
-                    SELECT @nombre_cliente
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM clientes
-                        WHERE LOWER(TRIM(nombre_cliente)) = LOWER(TRIM(@nombre_cliente))
-                    );", conexion);
-                insertarSemilla.Parameters.AddWithValue("nombre_cliente", nombreSemilla);
-                insertarSemilla.ExecuteNonQuery();
+                yaAplicada = verificar.ExecuteScalar() != null;
+            }
+
+            if (!yaAplicada)
+            {
+                foreach (string nombreSemilla in ClientesSemilla)
+                {
+                    using var insertarSemilla = new NpgsqlCommand(@"
+                        INSERT INTO clientes (nombre_cliente)
+                        SELECT @nombre_cliente
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM clientes
+                            WHERE LOWER(TRIM(nombre_cliente)) = LOWER(TRIM(@nombre_cliente))
+                        );", conexion);
+                    insertarSemilla.Parameters.AddWithValue("nombre_cliente", nombreSemilla);
+                    insertarSemilla.ExecuteNonQuery();
+                }
+
+                using var registrarSemilla = new NpgsqlCommand(@"
+                    INSERT INTO control_semillas (clave)
+                    VALUES ('clientes_iniciales_luxman_v1')
+                    ON CONFLICT (clave) DO NOTHING;", conexion);
+                registrarSemilla.ExecuteNonQuery();
             }
         }
 
@@ -95,22 +116,10 @@ namespace LuxmanErp.Services
             if (nombreLimpio.Length > 150)
                 throw new ArgumentException("El nombre del cliente no puede exceder 150 caracteres.");
 
-            string? rfcLimpio = string.IsNullOrWhiteSpace(datos.RfcCliente) ? null : datos.RfcCliente.Trim().ToUpperInvariant();
-            string? telefonoLimpio = string.IsNullOrWhiteSpace(datos.Telefono) ? null : datos.Telefono.Trim();
-            string? correoLimpio = string.IsNullOrWhiteSpace(datos.Correo) ? null : datos.Correo.Trim();
-
-            if (rfcLimpio != null && rfcLimpio.Length > 20)
-                throw new ArgumentException("El RFC no puede exceder 20 caracteres.");
-            if (telefonoLimpio != null && telefonoLimpio.Length > 20)
-                throw new ArgumentException("El teléfono no puede exceder 20 caracteres.");
-            if (correoLimpio != null && correoLimpio.Length > 150)
-                throw new ArgumentException("El correo no puede exceder 150 caracteres.");
-
             using var conexion = new NpgsqlConnection(cadenaConexion);
             conexion.Open();
             AsegurarTablaYSemilla(conexion);
 
-            // si ya existe un cliente con el mismo nombre exacto, lo devolvemos para evitar duplicados
             using (var buscarExistente = new NpgsqlCommand(@"
                 SELECT id_cliente, nombre_cliente, rfc_cliente, telefono, correo, tiene_descuento, fecha_alta
                 FROM clientes
@@ -135,14 +144,11 @@ namespace LuxmanErp.Services
             }
 
             using var insertar = new NpgsqlCommand(@"
-                INSERT INTO clientes (nombre_cliente, rfc_cliente, telefono, correo)
-                VALUES (@nombre_cliente, @rfc_cliente, @telefono, @correo)
+                INSERT INTO clientes (nombre_cliente)
+                VALUES (@nombre_cliente)
                 RETURNING id_cliente, fecha_alta;", conexion);
 
             insertar.Parameters.AddWithValue("nombre_cliente", nombreLimpio);
-            insertar.Parameters.AddWithValue("rfc_cliente", (object?)rfcLimpio ?? DBNull.Value);
-            insertar.Parameters.AddWithValue("telefono", (object?)telefonoLimpio ?? DBNull.Value);
-            insertar.Parameters.AddWithValue("correo", (object?)correoLimpio ?? DBNull.Value);
 
             using var lector = insertar.ExecuteReader();
             lector.Read();
@@ -151,12 +157,51 @@ namespace LuxmanErp.Services
             {
                 IdCliente = lector.GetInt32(0),
                 NombreCliente = nombreLimpio,
-                RfcCliente = rfcLimpio,
-                Telefono = telefonoLimpio,
-                Correo = correoLimpio,
                 TieneDescuento = false,
                 FechaAlta = lector.GetDateTime(1)
             };
+        }
+
+        // desvincula cualquier referencia previa (id_cliente = NULL) antes de eliminar el cliente
+        public bool Eliminar(int id_cliente)
+        {
+            using var conexion = new NpgsqlConnection(cadenaConexion);
+            conexion.Open();
+            AsegurarTablaYSemilla(conexion);
+
+            using var transaccion = conexion.BeginTransaction();
+
+            using (var desvincular = new NpgsqlCommand(@"
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'calculos_tanques' AND column_name = 'id_cliente'
+                    ) THEN
+                        UPDATE calculos_tanques SET id_cliente = NULL WHERE id_cliente = " + id_cliente + @";
+                    END IF;
+
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cotizaciones' AND column_name = 'id_cliente'
+                    ) THEN
+                        UPDATE cotizaciones SET id_cliente = NULL WHERE id_cliente = " + id_cliente + @";
+                    END IF;
+                END $$;", conexion, transaccion))
+            {
+                desvincular.ExecuteNonQuery();
+            }
+
+            int filasEliminadas;
+            using (var eliminar = new NpgsqlCommand(
+                "DELETE FROM clientes WHERE id_cliente = @id_cliente;", conexion, transaccion))
+            {
+                eliminar.Parameters.AddWithValue("id_cliente", id_cliente);
+                filasEliminadas = eliminar.ExecuteNonQuery();
+            }
+
+            transaccion.Commit();
+            return filasEliminadas > 0;
         }
     }
 }
