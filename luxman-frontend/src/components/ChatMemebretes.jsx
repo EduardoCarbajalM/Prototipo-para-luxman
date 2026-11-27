@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import './ChatMemebretes.css';
+import { URL_BASE } from '../api';
 
 const ZOOM_MINIMO = 0.5;
 const ZOOM_MAXIMO = 2.5;
@@ -34,8 +35,8 @@ const MENSAJE_BIENVENIDA = {
   texto: 'Por favor inserta tu texto completo aquí',
 };
 
-async function obtenerUrlPdf(idDocumento) {
-  const respuesta = await fetch(`/api/memebretes/${idDocumento}/pdf`);
+async function obtenerUrlPdf(id_documento) {
+  const respuesta = await fetch(`${URL_BASE}/api/memebretes/${id_documento}/pdf`);
   if (!respuesta.ok) throw new Error('No se pudo cargar el PDF.');
   return URL.createObjectURL(await respuesta.blob());
 }
@@ -170,20 +171,20 @@ function VistaChat() {
       );
 
     try {
-      const respuesta = await fetch('/api/memebretes/procesar', {
+      const respuesta = await fetch(`${URL_BASE}/api/memebretes/procesar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje: textoLimpio, idDocumentoActual: idDocumentoActivo }),
+        body: JSON.stringify({ mensaje: textoLimpio, id_documento_actual: idDocumentoActivo }),
       });
       if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
 
       const datos = await respuesta.json();
-      const urlPdf = await obtenerUrlPdf(datos.id);
-      setIdDocumentoActivo(datos.id);
+      const urlPdf = await obtenerUrlPdf(datos.id_documento);
+      setIdDocumentoActivo(datos.id_documento);
       actualizarRespuesta({
         tipo: 'pdf',
         texto: datos.mensaje,
-        pdf: { url: urlPdf, nombre: datos.nombreArchivo },
+        pdf: { url: urlPdf, nombre: datos.nombre_archivo },
       });
     } catch (error) {
       actualizarRespuesta({ tipo: 'error', texto: error.message || 'Ocurrió un error inesperado.' });
@@ -295,7 +296,7 @@ function VistaHistorial() {
   const [idCargando, setIdCargando] = useState(null);
 
   const cargarHistorial = useCallback(() => {
-    fetch('/api/memebretes')
+    fetch(`${URL_BASE}/api/memebretes`)
       .then(async (respuesta) => {
         if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
         return respuesta.json();
@@ -309,13 +310,17 @@ function VistaHistorial() {
   }, [cargarHistorial]);
 
   const abrirDocumento = async (registro) => {
-    setIdCargando(registro.id);
+    setIdCargando(registro.id_documento);
     try {
-      const urlPdf = await obtenerUrlPdf(registro.id);
-      const fechaCorta = new Date(registro.fecha).toISOString().slice(0, 10).replaceAll('-', '');
+      const urlPdf = await obtenerUrlPdf(registro.id_documento);
+      const fechaCorta = new Date(registro.fecha_creacion).toISOString().slice(0, 10).replaceAll('-', '');
       const clienteLimpio =
-        registro.nombreCliente.replace(/[^\p{L}\p{N} ]/gu, '').trim().replaceAll(' ', '_') || 'Cliente';
-      setDocumentoAbierto({ id: registro.id, url: urlPdf, nombre: `Cotizacion_${clienteLimpio}_${fechaCorta}.pdf` });
+        registro.nombre_cliente.replace(/[^\p{L}\p{N} ]/gu, '').trim().replaceAll(' ', '_') || 'Cliente';
+      setDocumentoAbierto({
+        id_documento: registro.id_documento,
+        url: urlPdf,
+        nombre: `Cotizacion_${clienteLimpio}_${fechaCorta}.pdf`,
+      });
     } catch (error) {
       setMensajeError(error.message);
     } finally {
@@ -323,15 +328,15 @@ function VistaHistorial() {
     }
   };
 
-  const moverAPapelera = async (id) => {
+  const moverAPapelera = async (id_documento) => {
     if (!window.confirm('¿Deseas mover esta cotización a la papelera?')) return;
     try {
-      const res = await fetch(`/api/memebretes/${id}`, {
+      const res = await fetch(`${URL_BASE}/api/memebretes/${id_documento}`, {
         method: 'DELETE',
         headers: { 'Accept': 'application/json' },
       });
       if (!res.ok) throw new Error(await extraerMensajeError(res));
-      if (documentoAbierto?.id === id) setDocumentoAbierto(null);
+      if (documentoAbierto?.id_documento === id_documento) setDocumentoAbierto(null);
       cargarHistorial();
     } catch (err) {
       alert(err.message);
@@ -381,20 +386,20 @@ function VistaHistorial() {
 
       <div className="mb-lista-items">
         {documentos?.map((registro) => {
-          const estaAbierto = documentoAbierto?.id === registro.id;
-          const estaCargando = idCargando === registro.id;
+          const estaAbierto = documentoAbierto?.id_documento === registro.id_documento;
+          const estaCargando = idCargando === registro.id_documento;
           return (
-            <div key={registro.id} className={`mb-item ${estaAbierto ? 'activo' : ''}`}>
+            <div key={registro.id_documento} className={`mb-item ${estaAbierto ? 'activo' : ''}`}>
               <div className="mb-item-cabecera">
                 <div className="mb-item-meta">
                   <div className="mb-item-avatar">
                     <User size={18} strokeWidth={2} />
                   </div>
                   <div className="mb-item-textos">
-                    <strong>{registro.nombreCliente}</strong>
+                    <strong>{registro.nombre_cliente}</strong>
                     <span className="mb-item-fecha">
                       <Calendar size={13} strokeWidth={2} />
-                      {formatearFechaHora(registro.fecha)}
+                      {formatearFechaHora(registro.fecha_creacion)}
                     </span>
                   </div>
                 </div>
@@ -427,7 +432,7 @@ function VistaHistorial() {
                   <button
                     type="button"
                     className="mb-btn-accion-historial mb-btn-papelera"
-                    onClick={() => moverAPapelera(registro.id)}
+                    onClick={() => moverAPapelera(registro.id_documento)}
                     title="Mover a la papelera"
                   >
                     <Trash2 size={16} strokeWidth={2} />
@@ -448,7 +453,7 @@ function VistaPapelera() {
   const [mensajeError, setMensajeError] = useState('');
 
   const cargarPapelera = useCallback(() => {
-    fetch('/api/memebretes/papelera')
+    fetch(`${URL_BASE}/api/memebretes/papelera`)
       .then(async (respuesta) => {
         if (!respuesta.ok) throw new Error(await extraerMensajeError(respuesta));
         return respuesta.json();
@@ -461,9 +466,9 @@ function VistaPapelera() {
     cargarPapelera();
   }, [cargarPapelera]);
 
-  const restaurarDocumento = async (id) => {
+  const restaurarDocumento = async (id_documento) => {
     try {
-      const res = await fetch(`/api/memebretes/${id}/restaurar`, { method: 'POST' });
+      const res = await fetch(`${URL_BASE}/api/memebretes/${id_documento}/restaurar`, { method: 'POST' });
       if (!res.ok) throw new Error(await extraerMensajeError(res));
       cargarPapelera();
     } catch (err) {
@@ -471,10 +476,10 @@ function VistaPapelera() {
     }
   };
 
-  const eliminarPermanente = async (id) => {
+  const eliminarPermanente = async (id_documento) => {
     if (!window.confirm('¿Esta acción eliminará el PDF definitivamente. ¿Continuar?')) return;
     try {
-      const res = await fetch(`/api/memebretes/${id}/permanente`, { method: 'DELETE' });
+      const res = await fetch(`${URL_BASE}/api/memebretes/${id_documento}/permanente`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await extraerMensajeError(res));
       cargarPapelera();
     } catch (err) {
@@ -517,17 +522,17 @@ function VistaPapelera() {
 
       <div className="mb-lista-items">
         {documentos?.map((registro) => (
-          <div key={registro.id} className="mb-item">
+          <div key={registro.id_documento} className="mb-item">
             <div className="mb-item-cabecera">
               <div className="mb-item-meta">
                 <div className="mb-item-avatar">
                   <User size={18} strokeWidth={2} />
                 </div>
                 <div className="mb-item-textos">
-                  <strong>{registro.nombreCliente}</strong>
+                  <strong>{registro.nombre_cliente}</strong>
                   <span className="mb-item-fecha">
                     <Calendar size={13} strokeWidth={2} />
-                    {formatearFechaHora(registro.fecha)}
+                    {formatearFechaHora(registro.fecha_creacion)}
                   </span>
                 </div>
               </div>
@@ -536,7 +541,7 @@ function VistaPapelera() {
                 <button
                   type="button"
                   className="mb-btn-accion-historial"
-                  onClick={() => restaurarDocumento(registro.id)}
+                  onClick={() => restaurarDocumento(registro.id_documento)}
                 >
                   <RotateCcw size={16} strokeWidth={2} />
                   <span>Restaurar</span>
@@ -545,7 +550,7 @@ function VistaPapelera() {
                 <button
                   type="button"
                   className="mb-btn-accion-historial mb-btn-papelera"
-                  onClick={() => eliminarPermanente(registro.id)}
+                  onClick={() => eliminarPermanente(registro.id_documento)}
                 >
                   <AlertTriangle size={16} strokeWidth={2} />
                   <span>Eliminar</span>

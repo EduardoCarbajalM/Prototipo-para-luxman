@@ -1,5 +1,6 @@
--- script para crear las tablas de clientes y cotizaciones
+-- script para crear las tablas de clientes, cotizaciones y solicitudes de contacto
 
+DROP TABLE IF EXISTS solicitudes_contacto;
 DROP TABLE IF EXISTS cotizaciones;
 DROP TABLE IF EXISTS clientes;
 
@@ -16,15 +17,28 @@ CREATE TABLE clientes (
 
 -- tabla donde se guardan las cotizaciones de los tanques
 CREATE TABLE cotizaciones (
-    id_cotizacion          SERIAL PRIMARY KEY,
-    id_cliente             INTEGER REFERENCES clientes(id_cliente),
-    litros_tanque          NUMERIC(10,2) NOT NULL CHECK (litros_tanque > 0),
-    tipo_acero             VARCHAR(5) NOT NULL CHECK (tipo_acero IN ('304', '316')),
-    tiene_agitacion        BOOLEAN DEFAULT FALSE,
-    precio_base            NUMERIC(12,2),
-    precio_final           NUMERIC(12,2),
-    is_cotizacion_aprobada BOOLEAN DEFAULT FALSE,
-    fecha_creacion         TIMESTAMP DEFAULT NOW()
+    id_cotizacion       SERIAL PRIMARY KEY,
+    id_cliente          INTEGER REFERENCES clientes(id_cliente),
+    litros_tanque       NUMERIC(10,2) NOT NULL CHECK (litros_tanque > 0),
+    tipo_acero          VARCHAR(5) NOT NULL CHECK (tipo_acero IN ('304', '316')),
+    tiene_agitacion     BOOLEAN DEFAULT FALSE,
+    precio_base         NUMERIC(12,2),
+    precio_final        NUMERIC(12,2),
+    cotizacion_aprobada BOOLEAN DEFAULT FALSE,
+    fecha_creacion      TIMESTAMP DEFAULT NOW()
+);
+
+-- tabla donde se guardan los prospectos que llenan el formulario de la landing page
+CREATE TABLE solicitudes_contacto (
+    id_solicitud   SERIAL PRIMARY KEY,
+    nombre         VARCHAR(150) NOT NULL,
+    empresa        VARCHAR(150),
+    correo         VARCHAR(150) NOT NULL,
+    telefono       VARCHAR(30) NOT NULL,
+    tipo_equipo    VARCHAR(100),
+    mensaje        TEXT,
+    atendida       BOOLEAN DEFAULT FALSE,
+    fecha_creacion TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX idx_cotizaciones_cliente ON cotizaciones(id_cliente);

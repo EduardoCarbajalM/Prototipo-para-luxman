@@ -26,15 +26,15 @@ namespace LuxmanErp.Services
 
             using var comando = new NpgsqlCommand(@"
                 INSERT INTO solicitudes_contacto (nombre, empresa, correo, telefono, tipo_equipo, mensaje)
-                VALUES (@nombre, @empresa, @correo, @telefono, @tipo, @mensaje)
+                VALUES (@nombre, @empresa, @correo, @telefono, @tipo_equipo, @mensaje)
                 RETURNING id_solicitud;", conexion);
 
-            comando.Parameters.AddWithValue("nombre", datos.nombre!.Trim());
-            comando.Parameters.AddWithValue("empresa", (object?)datos.empresa?.Trim() ?? DBNull.Value);
-            comando.Parameters.AddWithValue("correo", datos.correo!.Trim());
-            comando.Parameters.AddWithValue("telefono", datos.telefono!.Trim());
-            comando.Parameters.AddWithValue("tipo", (object?)datos.tipoEquipo?.Trim() ?? DBNull.Value);
-            comando.Parameters.AddWithValue("mensaje", (object?)datos.mensaje?.Trim() ?? DBNull.Value);
+            comando.Parameters.AddWithValue("nombre", datos.Nombre!.Trim());
+            comando.Parameters.AddWithValue("empresa", (object?)datos.Empresa?.Trim() ?? DBNull.Value);
+            comando.Parameters.AddWithValue("correo", datos.Correo!.Trim());
+            comando.Parameters.AddWithValue("telefono", datos.Telefono!.Trim());
+            comando.Parameters.AddWithValue("tipo_equipo", (object?)datos.TipoEquipo?.Trim() ?? DBNull.Value);
+            comando.Parameters.AddWithValue("mensaje", (object?)datos.Mensaje?.Trim() ?? DBNull.Value);
 
             return (int)comando.ExecuteScalar()!;
         }
@@ -75,31 +75,31 @@ namespace LuxmanErp.Services
             {
                 lista.Add(new SolicitudContacto
                 {
-                    idSolicitud = lector.GetInt32(0),
-                    nombre = lector.GetString(1),
-                    empresa = lector.IsDBNull(2) ? null : lector.GetString(2),
-                    correo = lector.GetString(3),
-                    telefono = lector.GetString(4),
-                    tipoEquipo = lector.IsDBNull(5) ? null : lector.GetString(5),
-                    mensaje = lector.IsDBNull(6) ? null : lector.GetString(6),
-                    atendida = !lector.IsDBNull(7) && lector.GetBoolean(7),
-                    fechaCreacion = lector.GetDateTime(8)
+                    IdSolicitud = lector.GetInt32(0),
+                    Nombre = lector.GetString(1),
+                    Empresa = lector.IsDBNull(2) ? null : lector.GetString(2),
+                    Correo = lector.GetString(3),
+                    Telefono = lector.GetString(4),
+                    TipoEquipo = lector.IsDBNull(5) ? null : lector.GetString(5),
+                    Mensaje = lector.IsDBNull(6) ? null : lector.GetString(6),
+                    Atendida = !lector.IsDBNull(7) && lector.GetBoolean(7),
+                    FechaCreacion = lector.GetDateTime(8)
                 });
             }
             return lista;
         }
 
         // marca o desmarca una solicitud como atendida
-        public bool MarcarAtendida(int id, bool atendida)
+        public bool MarcarAtendida(int id_solicitud, bool atendida)
         {
             using var conexion = new NpgsqlConnection(cadenaConexion);
             conexion.Open();
             AsegurarTabla(conexion);
 
             using var comando = new NpgsqlCommand(
-                "UPDATE solicitudes_contacto SET atendida = @atendida WHERE id_solicitud = @id;", conexion);
+                "UPDATE solicitudes_contacto SET atendida = @atendida WHERE id_solicitud = @id_solicitud;", conexion);
             comando.Parameters.AddWithValue("atendida", atendida);
-            comando.Parameters.AddWithValue("id", id);
+            comando.Parameters.AddWithValue("id_solicitud", id_solicitud);
             return comando.ExecuteNonQuery() > 0;
         }
     }

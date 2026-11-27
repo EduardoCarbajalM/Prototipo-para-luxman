@@ -28,20 +28,20 @@ namespace LuxmanErp.Services
 
         public byte[] GenerarPdfCotizacion(Cotizacion cotizacion, string nombreCliente)
         {
-            string folio = "COT-" + cotizacion.idCotizacion.ToString("D5");
-            DateTime fecha = cotizacion.fechaCreacion == default ? DateTime.Now : cotizacion.fechaCreacion;
+            string folio = "COT-" + cotizacion.IdCotizacion.ToString("D5");
+            DateTime fecha = cotizacion.FechaCreacion == default ? DateTime.Now : cotizacion.FechaCreacion;
             DateTime fechaVigencia = fecha.AddDays(15);
 
-            string descripcionAcero = cotizacion.tipoAcero == "316"
+            string descripcionAcero = cotizacion.TipoAcero == "316"
                 ? "Acero inoxidable AISI 316 (grado químico / farmacéutico)"
                 : "Acero inoxidable AISI 304 (grado alimenticio)";
 
-            decimal precioPorLitro = cotizacion.litrosTanque > 0
-                ? Math.Round(cotizacion.precioBase / cotizacion.litrosTanque, 2)
+            decimal precioPorLitro = cotizacion.LitrosTanque > 0
+                ? Math.Round(cotizacion.PrecioBase / cotizacion.LitrosTanque, 2)
                 : 0m;
-            decimal costoAgitacion = cotizacion.precioFinal - cotizacion.precioBase;
+            decimal costoAgitacion = cotizacion.PrecioFinal - cotizacion.PrecioBase;
 
-            decimal subtotal = cotizacion.precioFinal;
+            decimal subtotal = cotizacion.PrecioFinal;
             decimal iva = Math.Round(subtotal * TasaIva, 2);
             decimal total = subtotal + iva;
 
@@ -144,15 +144,15 @@ namespace LuxmanErp.Services
                             tabla.Cell().Element(CeldaCuerpo).Text("1");
                             tabla.Cell().Element(CeldaCuerpo).Column(col =>
                             {
-                                col.Item().Text($"Tanque de proceso de {FormatearNumero(cotizacion.litrosTanque)} litros").Bold();
+                                col.Item().Text($"Tanque de proceso de {FormatearNumero(cotizacion.LitrosTanque)} litros").Bold();
                                 col.Item().Text(descripcionAcero).FontSize(8.5f).FontColor(ColorTextoGris);
                                 col.Item().Text($"Costo de material: {FormatearMoneda(precioPorLitro)} por litro").FontSize(8.5f).FontColor(ColorTextoGris);
                             });
                             tabla.Cell().Element(CeldaCuerpo).AlignCenter().Text("1");
-                            tabla.Cell().Element(CeldaCuerpo).AlignRight().Text(FormatearMoneda(cotizacion.precioBase));
-                            tabla.Cell().Element(CeldaCuerpo).AlignRight().Text(FormatearMoneda(cotizacion.precioBase));
+                            tabla.Cell().Element(CeldaCuerpo).AlignRight().Text(FormatearMoneda(cotizacion.PrecioBase));
+                            tabla.Cell().Element(CeldaCuerpo).AlignRight().Text(FormatearMoneda(cotizacion.PrecioBase));
 
-                            if (cotizacion.tieneAgitacion)
+                            if (cotizacion.TieneAgitacion)
                             {
                                 tabla.Cell().Element(CeldaCuerpo).Text("2");
                                 tabla.Cell().Element(CeldaCuerpo).Column(col =>
@@ -200,11 +200,11 @@ namespace LuxmanErp.Services
                                     col.RelativeColumn(3);
                                 });
 
-                                FilaEspecificacion(tablaSpec, "Capacidad nominal", $"{FormatearNumero(cotizacion.litrosTanque)} litros");
+                                FilaEspecificacion(tablaSpec, "Capacidad nominal", $"{FormatearNumero(cotizacion.LitrosTanque)} litros");
                                 FilaEspecificacion(tablaSpec, "Material de construcción", descripcionAcero);
                                 FilaEspecificacion(tablaSpec, "Acabado interior", "Pulido sanitario");
                                 FilaEspecificacion(tablaSpec, "Sistema de agitación",
-                                    cotizacion.tieneAgitacion ? "Incluido (motorreductor + flecha + impulsor)" : "No incluido (tanque estático)");
+                                    cotizacion.TieneAgitacion ? "Incluido (motorreductor + flecha + impulsor)" : "No incluido (tanque estático)");
                             });
                         });
 

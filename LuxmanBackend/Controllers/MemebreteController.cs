@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using LuxmanErp.Models;
@@ -7,11 +8,10 @@ using LuxmanErp.Services;
 
 namespace LuxmanErp.Controllers
 {
-    // Datos que manda el chat desde el frontend
-    public class PeticionMemebrete
+    public class RespuestaMensajeDTO
     {
+        [JsonPropertyName("mensaje")]
         public string Mensaje { get; set; } = "";
-        public string? IdDocumentoActual { get; set; }
     }
 
     [ApiController]
@@ -65,20 +65,20 @@ namespace LuxmanErp.Controllers
 
                 var docGuardado = await repositorio.GuardarAsync(new MemebretePdf
                 {
-                    Fecha = DateTime.UtcNow,
+                    FechaCreacion = DateTime.UtcNow,
                     NombreCliente = datosTexto.NombreCliente,
-                    Archivo = bytesPdf,
+                    ArchivoPdf = bytesPdf,
                     TextoOriginal = textoFinal
                 });
 
-                return Ok(new
+                return Ok(new RespuestaMemebreteDTO
                 {
-                    id = docGuardado.Id,
-                    nombreCliente = docGuardado.NombreCliente,
-                    fecha = docGuardado.Fecha,
-                    nombreArchivo = ArmarNombreArchivo(docGuardado.NombreCliente, fechaActual),
-                    corregido = fueCorregido,
-                    mensaje = respuestaChat
+                    IdDocumento = docGuardado.IdDocumento,
+                    NombreCliente = docGuardado.NombreCliente,
+                    FechaCreacion = docGuardado.FechaCreacion,
+                    NombreArchivo = ArmarNombreArchivo(docGuardado.NombreCliente, fechaActual),
+                    Corregido = fueCorregido,
+                    Mensaje = respuestaChat
                 });
             }
             catch (Exception error)
@@ -102,18 +102,18 @@ namespace LuxmanErp.Controllers
         }
 
         // Devuelve el archivo pdf por su id de mongo
-        [HttpGet("{id}/pdf")]
-        public async Task<IActionResult> ObtenerPdf(string id, [FromQuery] bool descargar = false)
+        [HttpGet("{id_documento}/pdf")]
+        public async Task<IActionResult> ObtenerPdf(string id_documento, [FromQuery] bool descargar = false)
         {
             try
             {
-                var documento = await repositorio.ObtenerAsync(id);
+                var documento = await repositorio.ObtenerAsync(id_documento);
                 if (documento == null) return NotFound("No existe ese documento.");
 
-                string nombre = ArmarNombreArchivo(documento.NombreCliente, documento.Fecha.ToLocalTime());
+                string nombre = ArmarNombreArchivo(documento.NombreCliente, documento.FechaCreacion.ToLocalTime());
                 return descargar
-                    ? File(documento.Archivo, "application/pdf", nombre)
-                    : File(documento.Archivo, "application/pdf");
+                    ? File(documento.ArchivoPdf, "application/pdf", nombre)
+                    : File(documento.ArchivoPdf, "application/pdf");
             }
             catch (FormatException)
             {
@@ -126,14 +126,14 @@ namespace LuxmanErp.Controllers
         }
 
         // Mueve una cotización a la papelera (Soft Delete)
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> MoverAPapelera(string id)
+        [HttpDelete("{id_documento}")]
+        public async Task<IActionResult> MoverAPapelera(string id_documento)
         {
             try
             {
-                bool exito = await repositorio.MoverAPapeleraAsync(id);
+                bool exito = await repositorio.MoverAPapeleraAsync(id_documento);
                 if (!exito) return NotFound("No se encontró el documento especificado.");
-                return Ok(new { mensaje = "Cotización movida a la papelera." });
+                return Ok(new RespuestaMensajeDTO { Mensaje = "Cotización movida a la papelera." });
             }
             catch (Exception error)
             {
@@ -156,14 +156,14 @@ namespace LuxmanErp.Controllers
         }
 
         // Restaura un documento desde la papelera al historial activo
-        [HttpPost("{id}/restaurar")]
-        public async Task<IActionResult> Restaurar(string id)
+        [HttpPost("{id_documento}/restaurar")]
+        public async Task<IActionResult> Restaurar(string id_documento)
         {
             try
             {
-                bool exito = await repositorio.RestaurarAsync(id);
+                bool exito = await repositorio.RestaurarAsync(id_documento);
                 if (!exito) return NotFound("No se encontró el documento especificado en la papelera.");
-                return Ok(new { mensaje = "Cotización restaurada exitosamente." });
+                return Ok(new RespuestaMensajeDTO { Mensaje = "Cotización restaurada exitosamente." });
             }
             catch (Exception error)
             {
@@ -172,14 +172,14 @@ namespace LuxmanErp.Controllers
         }
 
         // Elimina definitivamente un documento de la base de datos
-        [HttpDelete("{id}/permanente")]
-        public async Task<IActionResult> EliminarPermanente(string id)
+        [HttpDelete("{id_documento}/permanente")]
+        public async Task<IActionResult> EliminarPermanente(string id_documento)
         {
             try
             {
-                bool exito = await repositorio.EliminarPermanenteAsync(id);
+                bool exito = await repositorio.EliminarPermanenteAsync(id_documento);
                 if (!exito) return NotFound("No se encontró el documento a eliminar.");
-                return Ok(new { mensaje = "Cotización eliminada permanentemente." });
+                return Ok(new RespuestaMensajeDTO { Mensaje = "Cotización eliminada permanentemente." });
             }
             catch (Exception error)
             {

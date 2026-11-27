@@ -19,7 +19,7 @@ const FORMULARIO_VACIO = {
   empresa: '',
   correo: '',
   telefono: '',
-  tipoEquipo: '',
+  tipo_equipo: '',
   mensaje: '',
 };
 
@@ -176,9 +176,9 @@ function FormularioContacto() {
                   </label>
                   <select
                     id="cf-tipo"
-                    name="tipoEquipo"
+                    name="tipo_equipo"
                     className="form-select input-cristal"
-                    value={datos.tipoEquipo}
+                    value={datos.tipo_equipo}
                     onChange={manejarCambio}
                   >
                     <option value="">Selecciona una opción</option>

@@ -25,10 +25,10 @@ namespace LuxmanErp.Controllers
             if (datos == null)
                 return BadRequest("No llegaron los datos de la cotización.");
 
-            if (datos.litrosTanque <= 0)
+            if (datos.LitrosTanque <= 0)
                 return BadRequest("Los litros del tanque tienen que ser mayores a cero.");
 
-            if (datos.tipoAcero != "304" && datos.tipoAcero != "316")
+            if (datos.TipoAcero != "304" && datos.TipoAcero != "316")
                 return BadRequest("El tipo de acero solo puede ser 304 o 316.");
 
             try
@@ -43,24 +43,24 @@ namespace LuxmanErp.Controllers
         }
 
         // obtiene el historial de cotizaciones de un cliente
-        [HttpGet("cliente/{idCliente}")]
-        public IActionResult ObtenerPorCliente(int idCliente)
+        [HttpGet("cliente/{id_cliente}")]
+        public IActionResult ObtenerPorCliente(int id_cliente)
         {
-            return Ok(servicioCotizacion.ObtenerCotizacionesPorCliente(idCliente));
+            return Ok(servicioCotizacion.ObtenerCotizacionesPorCliente(id_cliente));
         }
 
         // genera y regresa el archivo pdf de la cotizacion
-        [HttpGet("{idCotizacion}/pdf")]
-        public IActionResult DescargarPdf(int idCotizacion)
+        [HttpGet("{id_cotizacion}/pdf")]
+        public IActionResult DescargarPdf(int id_cotizacion)
         {
             try
             {
-                var (cotizacion, nombreCliente) = servicioCotizacion.ObtenerCotizacionPorId(idCotizacion);
+                var (cotizacion, nombreCliente) = servicioCotizacion.ObtenerCotizacionPorId(id_cotizacion);
                 if (cotizacion == null)
-                    return NotFound($"No existe la cotización #{idCotizacion}");
+                    return NotFound($"No existe la cotización #{id_cotizacion}");
 
                 byte[] archivoPdf = servicioPdf.GenerarPdfCotizacion(cotizacion, nombreCliente);
-                return File(archivoPdf, "application/pdf", $"Cotizacion_Luxman_COT-{idCotizacion:D5}.pdf");
+                return File(archivoPdf, "application/pdf", $"Cotizacion_Luxman_COT-{id_cotizacion:D5}.pdf");
             }
             catch (Exception error)
             {

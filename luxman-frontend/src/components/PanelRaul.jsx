@@ -175,7 +175,7 @@ function SolicitudesWeb({ alSesionExpirada }) {
     const nuevoValor = !solicitud.atendida;
     try {
       const respuesta = await fetch(
-        `${URL_BASE}/api/solicitudes/${solicitud.idSolicitud}/atendida`,
+        `${URL_BASE}/api/solicitudes/${solicitud.id_solicitud}/atendida`,
         { method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ atendida: nuevoValor }) }
       );
       if (respuesta.status === 401) {
@@ -185,7 +185,7 @@ function SolicitudesWeb({ alSesionExpirada }) {
       if (!respuesta.ok) throw new Error();
       setSolicitudes((anteriores) =>
         anteriores.map((s) =>
-          s.idSolicitud === solicitud.idSolicitud ? { ...s, atendida: nuevoValor } : s
+          s.id_solicitud === solicitud.id_solicitud ? { ...s, atendida: nuevoValor } : s
         )
       );
     } catch {
@@ -266,9 +266,11 @@ function SolicitudesWeb({ alSesionExpirada }) {
               )}
               {!cargando &&
                 visibles.map((s) => (
-                  <tr key={s.idSolicitud}>
+                  <tr key={s.id_solicitud}>
                     <td className="small text-nowrap">
-                      {new Date(s.fechaCreacion + 'Z').toLocaleString('es-MX', {
+                      {new Date(
+                        s.fecha_creacion?.endsWith('Z') ? s.fecha_creacion : `${s.fecha_creacion}Z`
+                      ).toLocaleString('es-MX', {
                         dateStyle: 'short',
                         timeStyle: 'short',
                       })}
@@ -279,7 +281,7 @@ function SolicitudesWeb({ alSesionExpirada }) {
                       <a href={`mailto:${s.correo}`} className="d-block text-break">{s.correo}</a>
                       <a href={`tel:${s.telefono}`}>{s.telefono}</a>
                     </td>
-                    <td className="small">{s.tipoEquipo || <span className="text-secondary">—</span>}</td>
+                    <td className="small">{s.tipo_equipo || <span className="text-secondary">—</span>}</td>
                     <td className="small" style={{ whiteSpace: 'pre-wrap' }}>
                       {s.mensaje || <span className="text-secondary">—</span>}
                     </td>

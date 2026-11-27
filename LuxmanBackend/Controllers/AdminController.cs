@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using LuxmanErp.Services;
@@ -6,7 +7,14 @@ namespace LuxmanErp.Controllers
 {
     public class LoginAdminDTO
     {
-        public string? pin { get; set; }
+        [JsonPropertyName("pin")]
+        public string? Pin { get; set; }
+    }
+
+    public class RespuestaLoginAdminDTO
+    {
+        [JsonPropertyName("token")]
+        public string Token { get; set; } = "";
     }
 
     [ApiController]
@@ -23,7 +31,7 @@ namespace LuxmanErp.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginAdminDTO datos)
         {
-            string? token = auth.IniciarSesion(datos?.pin);
+            string? token = auth.IniciarSesion(datos?.Pin);
             if (token == null)
             {
                 // pausa corta para frenar intentos masivos de adivinar el pin
@@ -31,7 +39,7 @@ namespace LuxmanErp.Controllers
                 return Unauthorized("PIN incorrecto.");
             }
 
-            return Ok(new { token });
+            return Ok(new RespuestaLoginAdminDTO { Token = token });
         }
 
         [HttpPost("logout")]

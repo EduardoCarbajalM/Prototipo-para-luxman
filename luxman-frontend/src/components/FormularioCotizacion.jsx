@@ -14,9 +14,9 @@ import {
   Loader2,
 } from "lucide-react";
 import "./LandingPage.css";
+import { URL_BASE } from "../api";
 
 // Dirección del backend para guardar las cotizaciones usando la ruta relativa para HTTPS/Nginx
-const URL_BASE = import.meta.env.VITE_API_URL || "";
 const URL_API = `${URL_BASE}/api/cotizacion`;
 
 // Costos por litro y límite del tanque
@@ -55,11 +55,11 @@ function FormularioCotizacion({ alVolver }) {
   const totalEstimado = precioBaseEstimado + (tieneAgitacion ? COSTO_AGITACION : 0);
 
   // Pide el PDF al backend y fuerza la descarga en el navegador
-  async function descargarPdfCotizacion(idCotizacion) {
+  async function descargarPdfCotizacion(id_cotizacion) {
     setDescargandoPdf(true);
     setErrorPdf("");
     try {
-      const respuesta = await fetch(`${URL_API}/${idCotizacion}/pdf`);
+      const respuesta = await fetch(`${URL_API}/${id_cotizacion}/pdf`);
       if (!respuesta.ok) {
         const texto = await respuesta.text();
         throw new Error(texto || `Error ${respuesta.status} al generar el PDF`);
@@ -67,7 +67,7 @@ function FormularioCotizacion({ alVolver }) {
 
       const cabecera = respuesta.headers.get("Content-Disposition") || "";
       const coincidencia = cabecera.match(/filename="?([^";]+)"?/);
-      const nombreArchivo = coincidencia ? coincidencia[1] : `Cotizacion_Luxman_${idCotizacion}.pdf`;
+      const nombreArchivo = coincidencia ? coincidencia[1] : `Cotizacion_Luxman_${id_cotizacion}.pdf`;
 
       const archivoBlob = await respuesta.blob();
       const urlTemporal = URL.createObjectURL(archivoBlob);
@@ -149,9 +149,9 @@ function FormularioCotizacion({ alVolver }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          litrosTanque: litrosNumero,
-          tipoAcero,
-          tieneAgitacion,
+          litros_tanque: litrosNumero,
+          tipo_acero: tipoAcero,
+          tiene_agitacion: tieneAgitacion,
         }),
       });
 
@@ -162,7 +162,7 @@ function FormularioCotizacion({ alVolver }) {
 
       const datosGuardados = await respuesta.json();
       setCotizacionCreada(datosGuardados);
-      await descargarPdfCotizacion(datosGuardados.idCotizacion);
+      await descargarPdfCotizacion(datosGuardados.id_cotizacion);
     } catch (error) {
       if (
         error.name === "TypeError" ||
@@ -181,12 +181,13 @@ function FormularioCotizacion({ alVolver }) {
   // Por si el servidor está apagado mostramos el cálculo local
   function activarEstimadoOffline() {
     setCotizacionCreada({
-      idCotizacion: "DEMO-ESTIMADO",
-      litrosTanque: litrosNumero,
-      tipoAcero,
-      tieneAgitacion,
-      precioBase: precioBaseEstimado,
-      precioFinal: totalEstimado,
+      id_cotizacion: "DEMO-ESTIMADO",
+      litros_tanque: litrosNumero,
+      tipo_acero: tipoAcero,
+      tiene_agitacion: tieneAgitacion,
+      precio_base: precioBaseEstimado,
+      precio_final: totalEstimado,
+      cotizacion_aprobada: false,
     });
     setUsandoEstimadoOffline(true);
     setMensajeError("");
@@ -494,8 +495,8 @@ function FormularioCotizacion({ alVolver }) {
                 </div>
                 <h2 className="text-dark fw-bold mb-1">
                   Cotización{" "}
-                  {cotizacionCreada.idCotizacion !== "DEMO-ESTIMADO"
-                    ? `#${cotizacionCreada.idCotizacion}`
+                  {cotizacionCreada.id_cotizacion !== "DEMO-ESTIMADO"
+                    ? `#${cotizacionCreada.id_cotizacion}`
                     : "Estimada"}
                 </h2>
                 <p className="text-secondary small">
@@ -520,19 +521,19 @@ function FormularioCotizacion({ alVolver }) {
                   <div className="col-sm-6">
                     <span className="text-secondary d-block">Capacidad Volumétrica:</span>
                     <strong className="text-dark fs-6">
-                      {parseFloat(cotizacionCreada.litrosTanque).toLocaleString()} Litros
+                      {parseFloat(cotizacionCreada.litros_tanque).toLocaleString()} Litros
                     </strong>
                   </div>
                   <div className="col-sm-6">
                     <span className="text-secondary d-block">Material de Fabricación:</span>
                     <strong className="text-dark fs-6">
-                      Acero Inoxidable AISI {cotizacionCreada.tipoAcero}
+                      Acero Inoxidable AISI {cotizacionCreada.tipo_acero}
                     </strong>
                   </div>
                   <div className="col-sm-6">
                     <span className="text-secondary d-block">Sistema de Agitación:</span>
                     <strong className="text-dark fs-6">
-                      {cotizacionCreada.tieneAgitacion
+                      {cotizacionCreada.tiene_agitacion
                         ? "Sí (Motorreductor trifásico + Flecha)"
                         : "No (Tanque estático)"}
                     </strong>
@@ -540,7 +541,7 @@ function FormularioCotizacion({ alVolver }) {
                   <div className="col-sm-6">
                     <span className="text-secondary d-block">Precio Base Material:</span>
                     <strong className="text-dark fs-6">
-                      {formatearMoneda(cotizacionCreada.precioBase)}
+                      {formatearMoneda(cotizacionCreada.precio_base)}
                     </strong>
                   </div>
                 </div>
@@ -550,7 +551,7 @@ function FormularioCotizacion({ alVolver }) {
                 <div className="d-flex justify-content-between align-items-center">
                   <span className="text-dark fs-5 fw-bold">Precio Final:</span>
                   <span className="text-primary display-6 fw-bold">
-                    {formatearMoneda(cotizacionCreada.precioFinal)}
+                    {formatearMoneda(cotizacionCreada.precio_final)}
                   </span>
                 </div>
               </div>
@@ -563,10 +564,10 @@ function FormularioCotizacion({ alVolver }) {
               )}
 
               <div className="d-flex flex-column flex-sm-row gap-3">
-                {cotizacionCreada.idCotizacion !== "DEMO-ESTIMADO" && (
+                {cotizacionCreada.id_cotizacion !== "DEMO-ESTIMADO" && (
                   <button
                     type="button"
-                    onClick={() => descargarPdfCotizacion(cotizacionCreada.idCotizacion)}
+                    onClick={() => descargarPdfCotizacion(cotizacionCreada.id_cotizacion)}
                     disabled={descargandoPdf}
                     className="btn btn-secundario-claro rounded-pill py-2 px-4 flex-grow-1 d-inline-flex align-items-center justify-content-center gap-2"
                   >

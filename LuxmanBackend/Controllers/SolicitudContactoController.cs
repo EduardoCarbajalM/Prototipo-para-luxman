@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using LuxmanErp.Models;
@@ -6,6 +7,12 @@ using LuxmanErp.Services;
 
 namespace LuxmanErp.Controllers
 {
+    public class RespuestaSolicitudCreadaDTO
+    {
+        [JsonPropertyName("id_solicitud")]
+        public int IdSolicitud { get; set; }
+    }
+
     [ApiController]
     [Route("api/solicitudes")]
     public class SolicitudContactoController : ControllerBase
@@ -36,13 +43,8 @@ namespace LuxmanErp.Controllers
             }
         }
 
-        public class MarcarAtendidaDTO
-        {
-            public bool atendida { get; set; }
-        }
-
-        [HttpPatch("{id}/atendida")]
-        public IActionResult MarcarAtendida(int id, [FromBody] MarcarAtendidaDTO datos,
+        [HttpPatch("{id_solicitud}/atendida")]
+        public IActionResult MarcarAtendida(int id_solicitud, [FromBody] MarcarAtendidaDTO datos,
             [FromHeader(Name = "X-Admin-Token")] string? token)
         {
             if (!auth.TokenValido(token))
@@ -50,7 +52,7 @@ namespace LuxmanErp.Controllers
 
             try
             {
-                return servicio.MarcarAtendida(id, datos.atendida) ? NoContent() : NotFound();
+                return servicio.MarcarAtendida(id_solicitud, datos.Atendida) ? NoContent() : NotFound();
             }
             catch (Exception)
             {
@@ -65,25 +67,25 @@ namespace LuxmanErp.Controllers
             if (datos == null)
                 return BadRequest("No llegaron los datos del formulario.");
 
-            if (string.IsNullOrWhiteSpace(datos.nombre) || datos.nombre.Length > 150)
+            if (string.IsNullOrWhiteSpace(datos.Nombre) || datos.Nombre.Length > 150)
                 return BadRequest("El nombre es obligatorio.");
 
-            if (string.IsNullOrWhiteSpace(datos.correo) || datos.correo.Length > 150
-                || !Regex.IsMatch(datos.correo, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            if (string.IsNullOrWhiteSpace(datos.Correo) || datos.Correo.Length > 150
+                || !Regex.IsMatch(datos.Correo, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
                 return BadRequest("El correo no es válido.");
 
-            if (string.IsNullOrWhiteSpace(datos.telefono) || datos.telefono.Length > 30
-                || Regex.Replace(datos.telefono, @"\D", "").Length < 8)
+            if (string.IsNullOrWhiteSpace(datos.Telefono) || datos.Telefono.Length > 30
+                || Regex.Replace(datos.Telefono, @"\D", "").Length < 8)
                 return BadRequest("El teléfono no es válido.");
 
-            if ((datos.empresa?.Length ?? 0) > 150 || (datos.tipoEquipo?.Length ?? 0) > 100
-                || (datos.mensaje?.Length ?? 0) > 2000)
+            if ((datos.Empresa?.Length ?? 0) > 150 || (datos.TipoEquipo?.Length ?? 0) > 100
+                || (datos.Mensaje?.Length ?? 0) > 2000)
                 return BadRequest("Alguno de los campos excede la longitud permitida.");
 
             try
             {
                 int id = servicio.Guardar(datos);
-                return Ok(new { idSolicitud = id });
+                return Ok(new RespuestaSolicitudCreadaDTO { IdSolicitud = id });
             }
             catch (Exception)
             {

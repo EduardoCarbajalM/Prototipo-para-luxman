@@ -1,29 +1,65 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace LuxmanErp.Models
 {
     // registro guardado en la tabla solicitudes_contacto
     public class SolicitudContacto
     {
-        public int idSolicitud { get; set; }
-        public string nombre { get; set; } = "";
-        public string? empresa { get; set; }
-        public string correo { get; set; } = "";
-        public string telefono { get; set; } = "";
-        public string? tipoEquipo { get; set; }
-        public string? mensaje { get; set; }
-        public bool atendida { get; set; }
-        public DateTime fechaCreacion { get; set; }
+        [JsonPropertyName("id_solicitud")]
+        public int IdSolicitud { get; set; }
+
+        [JsonPropertyName("nombre")]
+        public string Nombre { get; set; } = "";
+
+        [JsonPropertyName("empresa")]
+        public string? Empresa { get; set; }
+
+        [JsonPropertyName("correo")]
+        public string Correo { get; set; } = "";
+
+        [JsonPropertyName("telefono")]
+        public string Telefono { get; set; } = "";
+
+        [JsonPropertyName("tipo_equipo")]
+        public string? TipoEquipo { get; set; }
+
+        [JsonPropertyName("mensaje")]
+        public string? Mensaje { get; set; }
+
+        [JsonPropertyName("atendida")]
+        public bool Atendida { get; set; }
+
+        [JsonPropertyName("fecha_creacion")]
+        public DateTime FechaCreacion { get; set; }
     }
 
     // datos que manda el formulario de la landing page para que ventas contacte al interesado
     public class SolicitudContactoDTO
     {
-        public string? nombre { get; set; }
-        public string? empresa { get; set; }
-        public string? correo { get; set; }
-        public string? telefono { get; set; }
-        public string? tipoEquipo { get; set; }
-        public string? mensaje { get; set; }
+        [JsonPropertyName("nombre")]
+        public string? Nombre { get; set; }
+
+        [JsonPropertyName("empresa")]
+        public string? Empresa { get; set; }
+
+        [JsonPropertyName("correo")]
+        public string? Correo { get; set; }
+
+        [JsonPropertyName("telefono")]
+        public string? Telefono { get; set; }
+
+        [JsonPropertyName("tipo_equipo")]
+        public string? TipoEquipo { get; set; }
+
+        [JsonPropertyName("mensaje")]
+        public string? Mensaje { get; set; }
+    }
+
+    // cuerpo para marcar o desmarcar una solicitud como atendida
+    public class MarcarAtendidaDTO
+    {
+        [JsonPropertyName("atendida")]
+        public bool Atendida { get; set; }
     }
 }
