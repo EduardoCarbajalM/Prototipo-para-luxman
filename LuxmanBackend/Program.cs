@@ -8,7 +8,8 @@ var constructor = WebApplication.CreateBuilder(args);
 
 constructor.Services.AddControllers();
 
-// registramos los servicios de postgres, calculos tecnicos y mongo
+// registramos los servicios de postgres, clientes, calculos tecnicos y mongo
+constructor.Services.AddScoped<ClienteService>();
 constructor.Services.AddScoped<CotizacionService>();
 constructor.Services.AddScoped<PdfService>();
 constructor.Services.AddScoped<CalculoTanqueService>();

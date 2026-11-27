@@ -36,23 +36,32 @@ CREATE TABLE cotizaciones (
     fecha_creacion      TIMESTAMP DEFAULT NOW()
 );
 
--- tabla de la calculadora tecnica interna del Ing. Raul (dimensionamiento y estimacion de lamina)
+-- tabla de la calculadora tecnica interna del Ing. Raul (dimensionamiento, fondos y costeo de materiales)
 CREATE TABLE calculos_tanques (
-    id_calculo         SERIAL PRIMARY KEY,
-    nombre_referencia  VARCHAR(150),
-    radio_m            NUMERIC(10,4) NOT NULL CHECK (radio_m > 0),
-    longitud_m         NUMERIC(10,4) NOT NULL CHECK (longitud_m > 0),
-    tipo_fondo         VARCHAR(30) NOT NULL CHECK (tipo_fondo IN ('Plano', 'Cónico', 'Toriesférico')),
-    medida_hoja        VARCHAR(20) NOT NULL CHECK (medida_hoja IN ('1.22x2.44', '1.22x3.05', '1.52x3.05')),
-    precio_hoja        NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (precio_hoja >= 0),
-    diametro_m         NUMERIC(10,4) NOT NULL,
-    volumen_m3         NUMERIC(12,4) NOT NULL,
-    litros_tanque      NUMERIC(14,2) NOT NULL,
-    perimetro_m        NUMERIC(10,4) NOT NULL,
-    area_lamina_m2     NUMERIC(12,4) NOT NULL,
-    cantidad_hojas     INTEGER NOT NULL CHECK (cantidad_hojas > 0),
-    costo_total_lamina NUMERIC(14,2) NOT NULL DEFAULT 0,
-    fecha_creacion     TIMESTAMP DEFAULT NOW()
+    id_calculo             SERIAL PRIMARY KEY,
+    id_cliente             INTEGER REFERENCES clientes(id_cliente),
+    nombre_referencia      VARCHAR(150),
+    modo_calculo           VARCHAR(30) NOT NULL DEFAULT 'por_medidas',
+    litros_deseados        NUMERIC(14,2) NOT NULL DEFAULT 0,
+    radio_m                NUMERIC(10,4) NOT NULL CHECK (radio_m > 0),
+    longitud_m             NUMERIC(10,4) NOT NULL CHECK (longitud_m > 0),
+    tipo_fondo             VARCHAR(30) NOT NULL CHECK (tipo_fondo IN ('Plano', 'Cónico', 'Toriesférico')),
+    diametro_m             NUMERIC(10,4) NOT NULL,
+    volumen_cilindro_m3    NUMERIC(12,4) NOT NULL DEFAULT 0,
+    volumen_fondo_m3       NUMERIC(12,4) NOT NULL DEFAULT 0,
+    volumen_total_m3       NUMERIC(12,4) NOT NULL DEFAULT 0,
+    volumen_m3             NUMERIC(12,4) NOT NULL DEFAULT 0,
+    litros_tanque          NUMERIC(14,2) NOT NULL,
+    perimetro_m            NUMERIC(10,4) NOT NULL,
+    area_lamina_m2         NUMERIC(12,4) NOT NULL,
+    medida_hoja            VARCHAR(20) NOT NULL CHECK (medida_hoja IN ('1.22x2.44', '1.22x3.05', '1.52x3.05')),
+    cantidad_hojas         INTEGER NOT NULL CHECK (cantidad_hojas > 0),
+    precio_hoja            NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (precio_hoja >= 0),
+    costo_total_lamina     NUMERIC(14,2) NOT NULL DEFAULT 0,
+    materiales_json        JSONB NOT NULL DEFAULT '[]'::jsonb,
+    costo_total_materiales NUMERIC(14,2) NOT NULL DEFAULT 0,
+    notas                  TEXT,
+    fecha_creacion         TIMESTAMP DEFAULT NOW()
 );
 
 -- tabla donde se guardan los prospectos que llenan el formulario de la landing page
@@ -70,7 +79,10 @@ CREATE TABLE solicitudes_contacto (
 
 CREATE INDEX idx_cotizaciones_cliente ON cotizaciones(id_cliente);
 CREATE INDEX idx_calculos_tanques_fecha ON calculos_tanques(fecha_creacion DESC);
+CREATE INDEX idx_calculos_tanques_cliente ON calculos_tanques(id_cliente);
 
--- insertamos un cliente de prueba
-INSERT INTO clientes (nombre_cliente, rfc_cliente, telefono, correo, tiene_descuento)
-VALUES ('Lacteos del Norte SA de CV', 'LNO010101ABC', '8112345678', 'compras@lacteosdelnorte.com', TRUE);
+-- clientes iniciales precargados para el Ing. Raul
+INSERT INTO clientes (nombre_cliente, rfc_cliente, telefono, correo, tiene_descuento) VALUES
+    ('Cosméticos Naturales Ideal SA de CV', NULL, NULL, NULL, FALSE),
+    ('Farbe SA de CV', NULL, NULL, NULL, FALSE),
+    ('Lacteos del Norte SA de CV', 'LNO010101ABC', '8112345678', 'compras@lacteosdelnorte.com', TRUE);

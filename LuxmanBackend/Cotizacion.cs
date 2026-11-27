@@ -28,6 +28,22 @@ namespace LuxmanErp.Models
         public DateTime FechaAlta { get; set; }
     }
 
+    // datos para registrar un nuevo cliente desde la calculadora o el panel
+    public class ClienteRequestDTO
+    {
+        [JsonPropertyName("nombre_cliente")]
+        public string? NombreCliente { get; set; }
+
+        [JsonPropertyName("rfc_cliente")]
+        public string? RfcCliente { get; set; }
+
+        [JsonPropertyName("telefono")]
+        public string? Telefono { get; set; }
+
+        [JsonPropertyName("correo")]
+        public string? Correo { get; set; }
+    }
+
     // modelo que representa la tabla cotizaciones de postgres
     public class Cotizacion
     {
@@ -80,7 +96,7 @@ namespace LuxmanErp.Models
         public DateTime FechaCreacion { get; set; }
     }
 
-    // clase para recibir los datos que manda el director desde la calculadora tecnica
+    // clase para recibir los datos de cotizacion de venta
     public class CotizacionRequestDTO
     {
         [JsonPropertyName("id_cliente")]
