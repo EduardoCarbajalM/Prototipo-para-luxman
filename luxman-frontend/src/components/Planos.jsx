@@ -419,10 +419,64 @@ function Planos({
     descargarArchivo(documentoXml, "image/svg+xml;charset=utf-8", "svg");
   };
 
+  const manejarImprimirPlano = () => {
+    window.print();
+  };
+
   return (
     <div>
+      {/* Estilos exclusivos @media print para imprimir solo el plano y cajetín en horizontal */}
+      <style>{`
+        @media print {
+          @page {
+            size: landscape;
+            margin: 6mm;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            height: auto !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          aside,
+          nav,
+          .nav-tabs,
+          .no-imprimir-plano {
+            display: none !important;
+          }
+          main,
+          .min-vh-100,
+          .row {
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+          }
+          #luxman-area-impresion-plano {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            width: 100% !important;
+            overflow: visible !important;
+          }
+          #luxman-area-impresion-plano svg {
+            width: 100% !important;
+            max-height: 192mm !important;
+            min-width: 0 !important;
+            height: auto !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+      `}</style>
+
       {/* Barra superior de acciones CAD */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 p-3 bg-white rounded-3 border shadow-sm">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 p-3 bg-white rounded-3 border shadow-sm no-imprimir-plano">
         <div className="d-flex align-items-center gap-2">
           <Layers size={22} className="text-primary" />
           <div>
@@ -434,6 +488,15 @@ function Planos({
         </div>
 
         <div className="d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={manejarImprimirPlano}
+            className="btn btn-success fw-semibold d-inline-flex align-items-center gap-2"
+          >
+            <FileText size={17} />
+            <span>Imprimir / Guardar Plano PDF</span>
+          </button>
+
           <button
             type="button"
             onClick={manejarDescargarDxf}
@@ -455,7 +518,7 @@ function Planos({
       </div>
 
       {/* Indicadores rápidos de elementos representados en el plano */}
-      <div className="d-flex flex-wrap gap-2 mb-3 small">
+      <div className="d-flex flex-wrap gap-2 mb-3 small no-imprimir-plano">
         <span className="badge text-bg-light border text-dark">
           Ø A = {diametro_mm.toLocaleString("es-MX")} mm
         </span>
@@ -483,7 +546,10 @@ function Planos({
       </div>
 
       {/* Lienzo SVG Técnico */}
-      <div className="bg-white border rounded-3 shadow-sm p-2 p-md-3 overflow-auto">
+      <div
+        id="luxman-area-impresion-plano"
+        className="bg-white border rounded-3 shadow-sm p-2 p-md-3 overflow-auto"
+      >
         <svg
           ref={svgRef}
           viewBox="0 0 1100 760"

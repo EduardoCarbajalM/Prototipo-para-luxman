@@ -19,6 +19,7 @@ CREATE TABLE clientes (
 -- tabla donde se guardan las cotizaciones de venta
 CREATE TABLE cotizaciones (
     id_cotizacion       SERIAL PRIMARY KEY,
+    numero_folio        INTEGER NOT NULL DEFAULT 1,
     id_cliente          INTEGER REFERENCES clientes(id_cliente),
     radio_m             NUMERIC(10,4) DEFAULT 0,
     longitud_m          NUMERIC(10,4) DEFAULT 0,
@@ -33,12 +34,14 @@ CREATE TABLE cotizaciones (
     precio_base         NUMERIC(14,2),
     precio_final        NUMERIC(14,2),
     cotizacion_aprobada BOOLEAN DEFAULT FALSE,
+    eliminado           BOOLEAN NOT NULL DEFAULT FALSE,
     fecha_creacion      TIMESTAMP DEFAULT NOW()
 );
 
--- tabla de la calculadora tecnica interna del Ing. Raul (dimensionamiento, fondos y costeo de materiales)
+-- tabla de la calculadora tecnica interna del Ing. Raul (dimensionamiento, fondos, materiales y papelera)
 CREATE TABLE calculos_tanques (
     id_calculo             SERIAL PRIMARY KEY,
+    numero_folio           INTEGER NOT NULL DEFAULT 1,
     id_cliente             INTEGER REFERENCES clientes(id_cliente),
     nombre_referencia      VARCHAR(150),
     modo_calculo           VARCHAR(30) NOT NULL DEFAULT 'por_medidas',
@@ -61,6 +64,7 @@ CREATE TABLE calculos_tanques (
     materiales_json        JSONB NOT NULL DEFAULT '[]'::jsonb,
     costo_total_materiales NUMERIC(14,2) NOT NULL DEFAULT 0,
     notas                  TEXT,
+    eliminado              BOOLEAN NOT NULL DEFAULT FALSE,
     fecha_creacion         TIMESTAMP DEFAULT NOW()
 );
 
@@ -80,6 +84,7 @@ CREATE TABLE solicitudes_contacto (
 CREATE INDEX idx_cotizaciones_cliente ON cotizaciones(id_cliente);
 CREATE INDEX idx_calculos_tanques_fecha ON calculos_tanques(fecha_creacion DESC);
 CREATE INDEX idx_calculos_tanques_cliente ON calculos_tanques(id_cliente);
+CREATE INDEX idx_calculos_tanques_eliminado ON calculos_tanques(eliminado, numero_folio);
 
 -- clientes iniciales precargados para el Ing. Raul
 INSERT INTO clientes (nombre_cliente, rfc_cliente, telefono, correo, tiene_descuento) VALUES

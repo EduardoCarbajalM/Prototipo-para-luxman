@@ -27,7 +27,8 @@ namespace LuxmanErp.Services
 
         public byte[] GenerarPdfMedidas(CalculoTanque calculo)
         {
-            string folio = "CALC-" + calculo.IdCalculo.ToString("D5");
+            int numFolio = calculo.NumeroFolio > 0 ? calculo.NumeroFolio : calculo.IdCalculo;
+            string folio = "CALC-" + numFolio.ToString("D5");
             DateTime fecha = calculo.FechaCreacion == default ? DateTime.Now : calculo.FechaCreacion;
 
             string clienteTexto = !string.IsNullOrWhiteSpace(calculo.NombreCliente)

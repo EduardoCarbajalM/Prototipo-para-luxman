@@ -28,7 +28,8 @@ namespace LuxmanErp.Services
 
         public byte[] GenerarPdfCotizacion(Cotizacion cotizacion, string nombreCliente)
         {
-            string folio = "COT-" + cotizacion.IdCotizacion.ToString("D5");
+            int numFolio = cotizacion.NumeroFolio > 0 ? cotizacion.NumeroFolio : cotizacion.IdCotizacion;
+            string folio = "COT-" + numFolio.ToString("D5");
             DateTime fecha = cotizacion.FechaCreacion == default ? DateTime.Now : cotizacion.FechaCreacion;
             DateTime fechaVigencia = fecha.AddDays(15);
 

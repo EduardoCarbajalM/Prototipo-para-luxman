@@ -50,6 +50,9 @@ namespace LuxmanErp.Models
         [JsonPropertyName("id_cotizacion")]
         public int IdCotizacion { get; set; }
 
+        [JsonPropertyName("numero_folio")]
+        public int NumeroFolio { get; set; }
+
         [JsonPropertyName("id_cliente")]
         public int? IdCliente { get; set; }
 
@@ -91,6 +94,9 @@ namespace LuxmanErp.Models
 
         [JsonPropertyName("cotizacion_aprobada")]
         public bool CotizacionAprobada { get; set; }
+
+        [JsonPropertyName("eliminado")]
+        public bool Eliminado { get; set; }
 
         [JsonPropertyName("fecha_creacion")]
         public DateTime FechaCreacion { get; set; }

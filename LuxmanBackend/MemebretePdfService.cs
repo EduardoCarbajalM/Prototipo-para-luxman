@@ -53,14 +53,14 @@ namespace LuxmanErp.Services
 
         public static string FormatearFecha(DateTime fecha) => $"{fecha.Day} de {Meses[fecha.Month - 1]} de {fecha.Year}";
 
-        public byte[] Generar(TextoCotizacionParser.Resultado contenido, DateTime fecha)
+        public byte[] Generar(TextoCotizacionParser.Resultado contenido, DateTime fecha, int numeroFolio = 1)
         {
-            byte[] pdfBase = ArmarBaseConQuestPdf(contenido, FormatearFecha(fecha));
+            byte[] pdfBase = ArmarBaseConQuestPdf(contenido, FormatearFecha(fecha), numeroFolio);
             return PonerCamposEditables(pdfBase);
         }
 
         // primero hacemos el pdf con questpdf poniendo el texto en blanco para acomodar las posiciones
-        private static byte[] ArmarBaseConQuestPdf(TextoCotizacionParser.Resultado datos, string fechaTexto)
+        private static byte[] ArmarBaseConQuestPdf(TextoCotizacionParser.Resultado datos, string fechaTexto, int numeroFolio)
         {
             return Document.Create(documento =>
             {
@@ -87,6 +87,12 @@ namespace LuxmanErp.Services
 
                         foreach (string linea in datos.Encabezado)
                             columna.Item().Text(linea).FontSize(10).FontColor(ColorCampo);
+
+                        columna.Item().Row(fila =>
+                        {
+                            fila.ConstantItem(36).Text("Folio:").FontSize(10);
+                            fila.RelativeItem().Text($"MEM-{Math.Max(1, numeroFolio):D5}").Bold().FontSize(10).FontColor(ColorCampo);
+                        });
 
                         columna.Item().Row(fila =>
                         {

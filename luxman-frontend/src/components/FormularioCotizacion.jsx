@@ -204,13 +204,16 @@ function FormularioCotizacion({ alVolver }) {
   const [errorCliente, setErrorCliente] = useState("");
   const [notas, setNotas] = useState("");
 
-  // ===== ESTADOS DE GUARDADO E HISTORIAL =====
+  // ===== ESTADOS DE GUARDADO, HISTORIAL Y PAPELERA =====
   const [guardando, setGuardando] = useState(false);
   const [mensajeError, setMensajeError] = useState("");
   const [ultimoGuardado, setUltimoGuardado] = useState(null);
+  const [pestanaHistorial, setPestanaHistorial] = useState("guardados"); // 'guardados' | 'papelera'
   const [historial, setHistorial] = useState([]);
+  const [papelera, setPapelera] = useState([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
   const [errorHistorial, setErrorHistorial] = useState("");
+  const [avisoHistorial, setAvisoHistorial] = useState("");
   const [idDescargandoPdf, setIdDescargandoPdf] = useState(null);
 
   // ===== CÁLCULOS GEOMÉTRICOS EN TIEMPO REAL =====
@@ -327,10 +330,17 @@ function FormularioCotizacion({ alVolver }) {
   const cargarHistorial = useCallback(async () => {
     setCargandoHistorial(true);
     try {
-      const respuesta = await fetch(URL_API_CALCULOS);
-      if (!respuesta.ok) throw new Error();
-      const datos = await respuesta.json();
-      setHistorial(Array.isArray(datos) ? datos : []);
+      const [resActivos, resPapelera] = await Promise.all([
+        fetch(URL_API_CALCULOS),
+        fetch(`${URL_API_CALCULOS}/papelera`),
+      ]);
+      if (!resActivos.ok || !resPapelera.ok) throw new Error();
+      const [datosActivos, datosPapelera] = await Promise.all([
+        resActivos.json(),
+        resPapelera.json(),
+      ]);
+      setHistorial(Array.isArray(datosActivos) ? datosActivos : []);
+      setPapelera(Array.isArray(datosPapelera) ? datosPapelera : []);
       setErrorHistorial("");
     } catch {
       setErrorHistorial("No se pudo conectar con el servidor para cargar el historial de medidas.");
@@ -511,11 +521,9 @@ function FormularioCotizacion({ alVolver }) {
 
       const guardado = await respuesta.json();
       setUltimoGuardado(guardado);
-      setHistorial((prev) => [
-        guardado,
-        ...prev.filter((item) => item.id_calculo !== guardado.id_calculo),
-      ]);
-      setErrorHistorial("");
+      setPestanaHistorial("guardados");
+      setAvisoHistorial("");
+      await cargarHistorial();
     } catch (error) {
       if (
         error.name === "TypeError" ||
@@ -560,6 +568,56 @@ function FormularioCotizacion({ alVolver }) {
       setMensajeError("No se pudo descargar el PDF de medidas: " + error.message);
     } finally {
       setIdDescargandoPdf(null);
+    }
+  }
+
+  async function moverCalculoAPapelera(item) {
+    const etiquetaFolio = `CALC-${String(item.numero_folio || item.id_calculo).padStart(5, "0")}`;
+    if (!window.confirm(`¿Deseas mover ${etiquetaFolio} a la papelera?`)) return;
+
+    try {
+      const respuesta = await fetch(`${URL_API_CALCULOS}/${item.id_calculo}/eliminar`, {
+        method: "PATCH",
+      });
+      if (!respuesta.ok) throw new Error(await respuesta.text());
+      if (ultimoGuardado?.id_calculo === item.id_calculo) setUltimoGuardado(null);
+      setAvisoHistorial(`${etiquetaFolio} movido a la papelera.`);
+      await cargarHistorial();
+    } catch (error) {
+      setErrorHistorial("No se pudo mover a la papelera: " + error.message);
+    }
+  }
+
+  async function restaurarCalculoDePapelera(item) {
+    try {
+      const respuesta = await fetch(`${URL_API_CALCULOS}/${item.id_calculo}/restaurar`, {
+        method: "PATCH",
+      });
+      if (!respuesta.ok) throw new Error(await respuesta.text());
+      const restaurado = await respuesta.json();
+      const folioNuevo = `CALC-${String(restaurado.numero_folio || restaurado.id_calculo).padStart(5, "0")}`;
+      setAvisoHistorial(`Registro restaurado en Guardados como ${folioNuevo}.`);
+      await cargarHistorial();
+    } catch (error) {
+      setErrorHistorial("No se pudo restaurar el registro: " + error.message);
+    }
+  }
+
+  async function eliminarCalculoDefinitivo(item) {
+    const etiquetaFolio = `CALC-${String(item.numero_folio || item.id_calculo).padStart(5, "0")}`;
+    if (!window.confirm(`¿Eliminar ${etiquetaFolio} de forma permanente? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    try {
+      const respuesta = await fetch(`${URL_API_CALCULOS}/${item.id_calculo}`, {
+        method: "DELETE",
+      });
+      if (!respuesta.ok) throw new Error(await respuesta.text());
+      setAvisoHistorial(`${etiquetaFolio} eliminado permanentemente.`);
+      await cargarHistorial();
+    } catch (error) {
+      setErrorHistorial("No se pudo eliminar definitivamente: " + error.message);
     }
   }
 
@@ -625,7 +683,7 @@ function FormularioCotizacion({ alVolver }) {
     <div className="p-3 p-md-4">
       <div className="mx-auto" style={{ maxWidth: "1120px" }}>
         {/* ===== ENCABEZADO DEL MÓDULO ===== */}
-        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-imprimir-plano">
           <div>
             <h3 className="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
               <Calculator size={24} strokeWidth={2.2} className="text-primary" />
@@ -1364,7 +1422,9 @@ function FormularioCotizacion({ alVolver }) {
                     <CheckCircle2 size={18} className="flex-shrink-0" />
                     <span>
                       Guardado en PostgreSQL como{" "}
-                      <strong>CALC-{String(ultimoGuardado.id_calculo).padStart(5, "0")}</strong>
+                      <strong>
+                        CALC-{String(ultimoGuardado.numero_folio || ultimoGuardado.id_calculo).padStart(5, "0")}
+                      </strong>
                       {ultimoGuardado.nombre_cliente ? ` • ${ultimoGuardado.nombre_cliente}` : ""}.
                     </span>
                   </div>
@@ -1420,7 +1480,7 @@ function FormularioCotizacion({ alVolver }) {
               </div>
             </div>
 
-            {/* ===== HISTORIAL DE MEDIDAS GUARDADAS ===== */}
+            {/* ===== HISTORIAL DE MEDIDAS GUARDADAS Y PAPELERA ===== */}
             <div className="p-3 p-md-4" style={ESTILO_TARJETA}>
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <div className="d-flex align-items-center gap-2">
@@ -1428,7 +1488,7 @@ function FormularioCotizacion({ alVolver }) {
                   <div>
                     <h5 className="fw-bold text-dark mb-0">Historial de Medidas y Materiales Guardados</h5>
                     <small className="text-secondary">
-                      Consulta tus cálculos anteriores, abre sus planos paramétricos o descarga la ficha técnica en PDF.
+                      Los folios liberados se reutilizan automáticamente empezando desde el menor disponible.
                     </small>
                   </div>
                 </div>
@@ -1442,8 +1502,48 @@ function FormularioCotizacion({ alVolver }) {
                 </button>
               </div>
 
+              {/* Pestañas estilo navegador: Guardados y Papelera */}
+              <ul className="nav nav-tabs mb-3">
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPestanaHistorial("guardados");
+                      setAvisoHistorial("");
+                    }}
+                    className={`nav-link d-inline-flex align-items-center gap-2 fw-semibold ${
+                      pestanaHistorial === "guardados" ? "active text-primary" : "text-secondary"
+                    }`}
+                  >
+                    <FileCheck2 size={15} />
+                    <span>Guardados</span>
+                    <span className="badge text-bg-light border text-dark">{historial.length}</span>
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPestanaHistorial("papelera");
+                      setAvisoHistorial("");
+                    }}
+                    className={`nav-link d-inline-flex align-items-center gap-2 fw-semibold ${
+                      pestanaHistorial === "papelera" ? "active text-danger" : "text-secondary"
+                    }`}
+                  >
+                    <Trash2 size={15} />
+                    <span>Papelera</span>
+                    <span className="badge text-bg-light border text-dark">{papelera.length}</span>
+                  </button>
+                </li>
+              </ul>
+
+              {avisoHistorial && (
+                <div className="alert alert-info py-2 small mb-3">{avisoHistorial}</div>
+              )}
+
               {errorHistorial && (
-                <div className="alert alert-warning py-2 small">{errorHistorial}</div>
+                <div className="alert alert-warning py-2 small mb-3">{errorHistorial}</div>
               )}
 
               <div className="table-responsive">
@@ -1463,17 +1563,17 @@ function FormularioCotizacion({ alVolver }) {
                     {cargandoHistorial && (
                       <tr>
                         <td colSpan="7" className="text-center text-secondary py-4">
-                          Cargando historial...
+                          Cargando registros...
                         </td>
                       </tr>
                     )}
 
                     {!cargandoHistorial &&
-                      historial.map((item) => (
+                      (pestanaHistorial === "guardados" ? historial : papelera).map((item) => (
                         <tr key={item.id_calculo}>
                           <td className="text-nowrap">
                             <div className="fw-bold text-dark">
-                              CALC-{String(item.id_calculo).padStart(5, "0")}
+                              CALC-{String(item.numero_folio || item.id_calculo).padStart(5, "0")}
                             </div>
                             <div className="text-secondary" style={{ fontSize: "0.75rem" }}>
                               {formatearFecha(item.fecha_creacion)}
@@ -1540,46 +1640,79 @@ function FormularioCotizacion({ alVolver }) {
                           </td>
 
                           <td className="text-end text-nowrap">
-                            <div className="d-inline-flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() => cargarRegistroEnCalculadora(item, true)}
-                                className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
-                                title="Cargar en calculadora y abrir plano CAD"
-                              >
-                                <Eye size={14} />
-                                <span>Plano</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => descargarPdfMedidas(item.id_calculo)}
-                                disabled={idDescargandoPdf === item.id_calculo}
-                                className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
-                              >
-                                {idDescargandoPdf === item.id_calculo ? (
-                                  <>
-                                    <Loader2 size={14} className="mb-spinner" />
-                                    <span>PDF...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <FileDown size={14} />
-                                    <span>Descargar PDF de Medidas</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
+                            {pestanaHistorial === "guardados" ? (
+                              <div className="d-inline-flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => cargarRegistroEnCalculadora(item, true)}
+                                  className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                                  title="Cargar en calculadora y abrir plano CAD"
+                                >
+                                  <Eye size={14} />
+                                  <span>Plano</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => descargarPdfMedidas(item.id_calculo)}
+                                  disabled={idDescargandoPdf === item.id_calculo}
+                                  className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+                                >
+                                  {idDescargandoPdf === item.id_calculo ? (
+                                    <>
+                                      <Loader2 size={14} className="mb-spinner" />
+                                      <span>PDF...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FileDown size={14} />
+                                      <span>Descargar PDF de Medidas</span>
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moverCalculoAPapelera(item)}
+                                  className="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1"
+                                  title="Mover a la papelera"
+                                >
+                                  <Trash2 size={14} />
+                                  <span>Borrar</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="d-inline-flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => restaurarCalculoDePapelera(item)}
+                                  className="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1"
+                                >
+                                  <RotateCcw size={14} />
+                                  <span>Restaurar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarCalculoDefinitivo(item)}
+                                  className="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"
+                                >
+                                  <AlertTriangle size={14} />
+                                  <span>Eliminar definitivo</span>
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}
 
-                    {!cargandoHistorial && historial.length === 0 && (
-                      <tr>
-                        <td colSpan="7" className="text-center text-secondary py-4">
-                          Aún no hay cálculos guardados.
-                        </td>
-                      </tr>
-                    )}
+                    {!cargandoHistorial &&
+                      (pestanaHistorial === "guardados" ? historial : papelera).length === 0 && (
+                        <tr>
+                          <td colSpan="7" className="text-center text-secondary py-4">
+                            {pestanaHistorial === "guardados"
+                              ? "Aún no hay cálculos guardados activos."
+                              : "La papelera está vacía."}
+                          </td>
+                        </tr>
+                      )}
                   </tbody>
                 </table>
               </div>

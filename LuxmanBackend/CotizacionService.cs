@@ -25,7 +25,6 @@ namespace LuxmanErp.Services
                 ?? throw new InvalidOperationException("No se encontro la cadena de conexion en el appsettings.");
         }
 
-        // normaliza posibles variantes sin tilde y valida contra los tres tipos permitidos
         public static string? NormalizarTipoFondo(string? tipoFondo)
         {
             if (string.IsNullOrWhiteSpace(tipoFondo)) return null;
@@ -41,7 +40,6 @@ namespace LuxmanErp.Services
             return FondosValidos.Contains(limpio) ? limpio : null;
         }
 
-        // migracion automatica segura para bases ya existentes en produccion
         private static void AsegurarEsquema(NpgsqlConnection conexion)
         {
             using var migrar = new NpgsqlCommand(@"
@@ -55,17 +53,37 @@ namespace LuxmanErp.Services
                     END IF;
                 END $$;
 
+                ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_folio INTEGER;
+                ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS eliminado BOOLEAN DEFAULT FALSE;
                 ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS radio_m NUMERIC(10,4) DEFAULT 0;
                 ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS longitud_m NUMERIC(10,4) DEFAULT 0;
                 ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS tipo_fondo VARCHAR(30) DEFAULT 'Plano';
                 ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS diametro_m NUMERIC(10,4) DEFAULT 0;
                 ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS volumen_m3 NUMERIC(12,4) DEFAULT 0;
                 ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS perimetro_m NUMERIC(10,4) DEFAULT 0;
-                ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS area_lamina_m2 NUMERIC(12,4) DEFAULT 0;", conexion);
+                ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS area_lamina_m2 NUMERIC(12,4) DEFAULT 0;
+
+                UPDATE cotizaciones SET numero_folio = id_cotizacion WHERE numero_folio IS NULL OR numero_folio <= 0;
+                UPDATE cotizaciones SET eliminado = FALSE WHERE eliminado IS NULL;", conexion);
             migrar.ExecuteNonQuery();
         }
 
-        // calcula las dimensiones geometricas y deja que el trigger de postgres calcule precio_base y precio_final
+        private static int ObtenerMenorFolioDisponible(NpgsqlConnection conexion)
+        {
+            var ocupados = new List<int>();
+            using var cmd = new NpgsqlCommand(@"
+                SELECT DISTINCT numero_folio
+                FROM cotizaciones
+                WHERE NOT COALESCE(eliminado, FALSE) AND numero_folio > 0
+                ORDER BY numero_folio ASC;", conexion);
+            using var lector = cmd.ExecuteReader();
+            while (lector.Read())
+            {
+                ocupados.Add(lector.GetInt32(0));
+            }
+            return CalculoTanqueService.CalcularMenorEnteroDisponible(ocupados);
+        }
+
         public Cotizacion CrearCotizacion(CotizacionRequestDTO datos)
         {
             if (datos.RadioM <= 0)
@@ -81,7 +99,6 @@ namespace LuxmanErp.Services
             if (datos.TipoAcero != "304" && datos.TipoAcero != "316")
                 throw new ArgumentException("El tipo de acero solo puede ser 304 o 316.");
 
-            // calculos geometricos oficiales en el servidor
             double radio = (double)datos.RadioM;
             double longitud = (double)datos.LongitudM;
             double diametro = 2.0 * radio;
@@ -90,50 +107,49 @@ namespace LuxmanErp.Services
             double perimetro = Math.PI * diametro;
             double areaLamina = perimetro * longitud;
 
-            decimal radioRedondeado = Math.Round(datos.RadioM, 4);
-            decimal longitudRedondeada = Math.Round(datos.LongitudM, 4);
-            decimal diametroRedondeado = Math.Round((decimal)diametro, 4);
-            decimal volumenRedondeado = Math.Round((decimal)volumen, 4);
             decimal litrosRedondeados = Math.Round((decimal)litros, 2);
-            decimal perimetroRedondeado = Math.Round((decimal)perimetro, 4);
-            decimal areaRedondeada = Math.Round((decimal)areaLamina, 4);
-
             if (litrosRedondeados <= 0)
                 throw new ArgumentException("Las dimensiones ingresadas producen un volumen menor o igual a cero.");
-
-            var nueva = new Cotizacion
-            {
-                IdCliente = datos.IdCliente,
-                RadioM = radioRedondeado,
-                LongitudM = longitudRedondeada,
-                TipoFondo = fondoNormalizado,
-                DiametroM = diametroRedondeado,
-                VolumenM3 = volumenRedondeado,
-                LitrosTanque = litrosRedondeados,
-                PerimetroM = perimetroRedondeado,
-                AreaLaminaM2 = areaRedondeada,
-                TipoAcero = datos.TipoAcero,
-                TieneAgitacion = datos.TieneAgitacion
-            };
 
             using var conexion = new NpgsqlConnection(cadenaConexion);
             conexion.Open();
             AsegurarEsquema(conexion);
 
+            int folioDisponible = ObtenerMenorFolioDisponible(conexion);
+
+            var nueva = new Cotizacion
+            {
+                NumeroFolio = folioDisponible,
+                IdCliente = datos.IdCliente,
+                RadioM = Math.Round(datos.RadioM, 4),
+                LongitudM = Math.Round(datos.LongitudM, 4),
+                TipoFondo = fondoNormalizado,
+                DiametroM = Math.Round((decimal)diametro, 4),
+                VolumenM3 = Math.Round((decimal)volumen, 4),
+                LitrosTanque = litrosRedondeados,
+                PerimetroM = Math.Round((decimal)perimetro, 4),
+                AreaLaminaM2 = Math.Round((decimal)areaLamina, 4),
+                TipoAcero = datos.TipoAcero,
+                TieneAgitacion = datos.TieneAgitacion,
+                Eliminado = false
+            };
+
             string consulta = @"
                 INSERT INTO cotizaciones (
-                    id_cliente, radio_m, longitud_m, tipo_fondo,
+                    numero_folio, id_cliente, radio_m, longitud_m, tipo_fondo,
                     diametro_m, volumen_m3, litros_tanque, perimetro_m, area_lamina_m2,
-                    tipo_acero, tiene_agitacion
+                    tipo_acero, tiene_agitacion, eliminado
                 )
                 VALUES (
-                    @id_cliente, @radio_m, @longitud_m, @tipo_fondo,
+                    @numero_folio, @id_cliente, @radio_m, @longitud_m, @tipo_fondo,
                     @diametro_m, @volumen_m3, @litros_tanque, @perimetro_m, @area_lamina_m2,
-                    @tipo_acero, @tiene_agitacion
+                    @tipo_acero, @tiene_agitacion, FALSE
                 )
                 RETURNING id_cotizacion, precio_base, precio_final, fecha_creacion, cotizacion_aprobada;";
 
             using var comando = new NpgsqlCommand(consulta, conexion);
+
+            comando.Parameters.AddWithValue("numero_folio", nueva.NumeroFolio);
 
             object valorCliente = (datos.IdCliente == null || datos.IdCliente == 0)
                 ? DBNull.Value
@@ -166,7 +182,6 @@ namespace LuxmanErp.Services
             return nueva;
         }
 
-        // busca una cotizacion por su id para poder armar el pdf
         public (Cotizacion? cotizacion, string nombreCliente) ObtenerCotizacionPorId(int id_cotizacion)
         {
             using var conexion = new NpgsqlConnection(cadenaConexion);
@@ -179,6 +194,7 @@ namespace LuxmanErp.Services
                        c.diametro_m, c.volumen_m3, c.litros_tanque, c.perimetro_m, c.area_lamina_m2,
                        c.tipo_acero, c.tiene_agitacion,
                        c.precio_base, c.precio_final, c.cotizacion_aprobada, c.fecha_creacion,
+                       c.numero_folio, c.eliminado,
                        cl.nombre_cliente
                 FROM cotizaciones c
                 LEFT JOIN clientes cl ON cl.id_cliente = c.id_cliente
@@ -191,11 +207,10 @@ namespace LuxmanErp.Services
             if (!lector.Read()) return (null, "");
 
             var encontrada = MapearCotizacion(lector);
-            string cliente = lector.IsDBNull(16) ? "Público en general" : lector.GetString(16);
+            string cliente = lector.IsDBNull(18) ? "Público en general" : lector.GetString(18);
             return (encontrada, cliente);
         }
 
-        // saca todas las cotizaciones que ha hecho un cliente
         public List<Cotizacion> ObtenerCotizacionesPorCliente(int id_cliente)
         {
             var lista = new List<Cotizacion>();
@@ -209,10 +224,11 @@ namespace LuxmanErp.Services
                        radio_m, longitud_m, tipo_fondo,
                        diametro_m, volumen_m3, litros_tanque, perimetro_m, area_lamina_m2,
                        tipo_acero, tiene_agitacion,
-                       precio_base, precio_final, cotizacion_aprobada, fecha_creacion
+                       precio_base, precio_final, cotizacion_aprobada, fecha_creacion,
+                       numero_folio, eliminado
                 FROM cotizaciones
-                WHERE id_cliente = @id_cliente
-                ORDER BY fecha_creacion DESC;";
+                WHERE id_cliente = @id_cliente AND NOT COALESCE(eliminado, FALSE)
+                ORDER BY numero_folio ASC, fecha_creacion DESC;";
             using var comando = new NpgsqlCommand(consulta, conexion);
             comando.Parameters.AddWithValue("id_cliente", id_cliente);
 
@@ -227,9 +243,14 @@ namespace LuxmanErp.Services
 
         private static Cotizacion MapearCotizacion(NpgsqlDataReader lector)
         {
+            int idCot = lector.GetInt32(0);
+            int numFolio = lector.IsDBNull(16) ? idCot : lector.GetInt32(16);
+            if (numFolio <= 0) numFolio = idCot;
+
             return new Cotizacion
             {
-                IdCotizacion = lector.GetInt32(0),
+                IdCotizacion = idCot,
+                NumeroFolio = numFolio,
                 IdCliente = lector.IsDBNull(1) ? null : lector.GetInt32(1),
                 RadioM = lector.IsDBNull(2) ? 0m : lector.GetDecimal(2),
                 LongitudM = lector.IsDBNull(3) ? 0m : lector.GetDecimal(3),
@@ -244,7 +265,8 @@ namespace LuxmanErp.Services
                 PrecioBase = lector.IsDBNull(12) ? 0m : lector.GetDecimal(12),
                 PrecioFinal = lector.IsDBNull(13) ? 0m : lector.GetDecimal(13),
                 CotizacionAprobada = !lector.IsDBNull(14) && lector.GetBoolean(14),
-                FechaCreacion = lector.IsDBNull(15) ? DateTime.Now : lector.GetDateTime(15)
+                FechaCreacion = lector.IsDBNull(15) ? DateTime.Now : lector.GetDateTime(15),
+                Eliminado = !lector.IsDBNull(17) && lector.GetBoolean(17)
             };
         }
     }

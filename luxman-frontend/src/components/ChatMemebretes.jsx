@@ -396,7 +396,12 @@ function VistaHistorial() {
                     <User size={18} strokeWidth={2} />
                   </div>
                   <div className="mb-item-textos">
-                    <strong>{registro.nombre_cliente}</strong>
+                    <strong>
+                      {registro.numero_folio > 0
+                        ? `MEM-${String(registro.numero_folio).padStart(5, '0')} · `
+                        : ''}
+                      {registro.nombre_cliente}
+                    </strong>
                     <span className="mb-item-fecha">
                       <Calendar size={13} strokeWidth={2} />
                       {formatearFechaHora(registro.fecha_creacion)}
@@ -529,7 +534,12 @@ function VistaPapelera() {
                   <User size={18} strokeWidth={2} />
                 </div>
                 <div className="mb-item-textos">
-                  <strong>{registro.nombre_cliente}</strong>
+                  <strong>
+                    {registro.numero_folio > 0
+                      ? `MEM-${String(registro.numero_folio).padStart(5, '0')} · `
+                      : ''}
+                    {registro.nombre_cliente}
+                  </strong>
                   <span className="mb-item-fecha">
                     <Calendar size={13} strokeWidth={2} />
                     {formatearFechaHora(registro.fecha_creacion)}

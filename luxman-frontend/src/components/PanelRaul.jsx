@@ -377,7 +377,7 @@ function ActaEntrega() {
 
     setMensajeError('');
     setActaRegistrada({
-      folio: 'ACTA-' + Date.now().toString().slice(-6),
+      folio: 'ACTA-00001',
       fecha: new Date().toLocaleString('es-MX'),
       cliente,
       nombreRecibe,
@@ -527,7 +527,7 @@ function PanelRaul({ alCerrarSesion }) {
     { id: 'crm', texto: 'Directorio CRM' },
     { id: 'solicitudes', texto: 'Solicitudes Web' },
     { id: 'acta', texto: 'Acta de Entrega Logística' },
-    { id: 'memebretes', texto: 'Generador de Membretes (Regex)' },
+    { id: 'memebretes', texto: 'Generador de Membretes' },
   ];
 
   return (

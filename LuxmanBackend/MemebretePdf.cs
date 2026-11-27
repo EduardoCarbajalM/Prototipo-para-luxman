@@ -14,6 +14,10 @@ namespace LuxmanErp.Models
         [JsonPropertyName("id_documento")]
         public string? IdDocumento { get; set; }
 
+        [BsonElement("numero_folio")]
+        [JsonPropertyName("numero_folio")]
+        public int NumeroFolio { get; set; }
+
         [BsonElement("fecha_creacion")]
         [JsonPropertyName("fecha_creacion")]
         public DateTime FechaCreacion { get; set; }
@@ -42,6 +46,9 @@ namespace LuxmanErp.Models
         [JsonPropertyName("id_documento")]
         public string IdDocumento { get; set; } = "";
 
+        [JsonPropertyName("numero_folio")]
+        public int NumeroFolio { get; set; }
+
         [JsonPropertyName("fecha_creacion")]
         public DateTime FechaCreacion { get; set; }
 
@@ -67,6 +74,9 @@ namespace LuxmanErp.Models
     {
         [JsonPropertyName("id_documento")]
         public string? IdDocumento { get; set; }
+
+        [JsonPropertyName("numero_folio")]
+        public int NumeroFolio { get; set; }
 
         [JsonPropertyName("nombre_cliente")]
         public string NombreCliente { get; set; } = "";

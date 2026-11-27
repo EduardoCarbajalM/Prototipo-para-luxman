@@ -69,8 +69,9 @@ namespace LuxmanErp.Controllers
                 if (cotizacion == null)
                     return NotFound($"No existe la cotización #{id_cotizacion}");
 
+                int numFolio = cotizacion.NumeroFolio > 0 ? cotizacion.NumeroFolio : cotizacion.IdCotizacion;
                 byte[] archivoPdf = servicioPdf.GenerarPdfCotizacion(cotizacion, nombreCliente);
-                return File(archivoPdf, "application/pdf", $"Cotizacion_Luxman_COT-{id_cotizacion:D5}.pdf");
+                return File(archivoPdf, "application/pdf", $"Cotizacion_Luxman_COT-{numFolio:D5}.pdf");
             }
             catch (Exception error)
             {

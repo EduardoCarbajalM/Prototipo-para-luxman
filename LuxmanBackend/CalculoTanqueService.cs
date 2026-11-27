@@ -9,7 +9,7 @@ using LuxmanErp.Models;
 
 namespace LuxmanErp.Services
 {
-    // servicio para persistir los calculos geometricos, volumenes de fondo y desglose de materiales
+    // servicio para persistir los calculos geometricos, materiales, papelera y reutilizacion de folios
     public class CalculoTanqueService
     {
         private readonly string cadenaConexion;
@@ -47,7 +47,6 @@ namespace LuxmanErp.Services
                 : 1.22 * 2.44;
         }
 
-        // calcula el volumen real en m3 aportado por el cabezal/fondo inferior segun su geometria
         public static double CalcularVolumenFondoM3(string tipoFondo, double radio, double diametro)
         {
             if (tipoFondo == "Cónico")
@@ -64,6 +63,37 @@ namespace LuxmanErp.Services
             return 0.0;
         }
 
+        // encuentra el menor entero positivo (>= 1) que no este ocupado entre una lista ordenada de folios activos
+        public static int CalcularMenorEnteroDisponible(IEnumerable<int> foliosOcupados)
+        {
+            int candidato = 1;
+            foreach (int folio in foliosOcupados.Where(f => f > 0).Distinct().OrderBy(f => f))
+            {
+                if (folio == candidato)
+                    candidato++;
+                else if (folio > candidato)
+                    break;
+            }
+            return candidato;
+        }
+
+        private static int ObtenerMenorFolioDisponible(NpgsqlConnection conexion)
+        {
+            var ocupados = new List<int>();
+            using var comando = new NpgsqlCommand(@"
+                SELECT DISTINCT numero_folio
+                FROM calculos_tanques
+                WHERE NOT COALESCE(eliminado, FALSE) AND numero_folio > 0
+                ORDER BY numero_folio ASC;", conexion);
+
+            using var lector = comando.ExecuteReader();
+            while (lector.Read())
+            {
+                ocupados.Add(lector.GetInt32(0));
+            }
+            return CalcularMenorEnteroDisponible(ocupados);
+        }
+
         // migracion automatica segura en caliente para bases existentes en el VPS
         private static void AsegurarTabla(NpgsqlConnection conexion)
         {
@@ -72,6 +102,7 @@ namespace LuxmanErp.Services
             using var comando = new NpgsqlCommand(@"
                 CREATE TABLE IF NOT EXISTS calculos_tanques (
                     id_calculo             SERIAL PRIMARY KEY,
+                    numero_folio           INTEGER NOT NULL DEFAULT 1,
                     id_cliente             INTEGER REFERENCES clientes(id_cliente),
                     nombre_referencia      VARCHAR(150),
                     modo_calculo           VARCHAR(30) NOT NULL DEFAULT 'por_medidas',
@@ -94,9 +125,11 @@ namespace LuxmanErp.Services
                     materiales_json        JSONB NOT NULL DEFAULT '[]'::jsonb,
                     costo_total_materiales NUMERIC(14,2) NOT NULL DEFAULT 0,
                     notas                  TEXT,
+                    eliminado              BOOLEAN NOT NULL DEFAULT FALSE,
                     fecha_creacion         TIMESTAMP DEFAULT NOW()
                 );
 
+                ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS numero_folio INTEGER;
                 ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS id_cliente INTEGER REFERENCES clientes(id_cliente);
                 ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS nombre_referencia VARCHAR(150);
                 ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS modo_calculo VARCHAR(30) DEFAULT 'por_medidas';
@@ -119,7 +152,11 @@ namespace LuxmanErp.Services
                 ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS materiales_json JSONB DEFAULT '[]'::jsonb;
                 ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS costo_total_materiales NUMERIC(14,2) DEFAULT 0;
                 ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS notas TEXT;
-                ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS fecha_creacion TIMESTAMP DEFAULT NOW();", conexion);
+                ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS eliminado BOOLEAN DEFAULT FALSE;
+                ALTER TABLE calculos_tanques ADD COLUMN IF NOT EXISTS fecha_creacion TIMESTAMP DEFAULT NOW();
+
+                UPDATE calculos_tanques SET numero_folio = id_calculo WHERE numero_folio IS NULL OR numero_folio <= 0;
+                UPDATE calculos_tanques SET eliminado = FALSE WHERE eliminado IS NULL;", conexion);
             comando.ExecuteNonQuery();
         }
 
@@ -155,7 +192,6 @@ namespace LuxmanErp.Services
             if (hojaNormalizada == null)
                 throw new ArgumentException("Selecciona una medida de hoja comercial válida: 1.22x2.44, 1.22x3.05 o 1.52x3.05.");
 
-            // calculos geometricos exactos con aportacion de fondo
             double diametro = 2.0 * radio;
             double volumenCilindro = Math.PI * radio * radio * longitud;
             double volumenFondo = CalcularVolumenFondoM3(fondoNormalizado, radio, diametro);
@@ -166,7 +202,6 @@ namespace LuxmanErp.Services
             double areaHoja = AreasHojasComerciales[hojaNormalizada];
             int cantidadHojas = Math.Max(1, (int)Math.Ceiling(areaLamina / areaHoja));
 
-            // sanitizar y recalcular subtotales de la lista de materiales seleccionados
             var materialesLimpios = new List<MaterialCalculoItem>();
             foreach (var item in datos.MaterialesJson ?? Enumerable.Empty<MaterialCalculoItem>())
             {
@@ -203,8 +238,16 @@ namespace LuxmanErp.Services
             string? notasLimpias = string.IsNullOrWhiteSpace(datos.Notas) ? null : datos.Notas.Trim();
             string? referenciaLimpia = string.IsNullOrWhiteSpace(datos.NombreReferencia) ? null : datos.NombreReferencia.Trim();
 
+            using var conexion = new NpgsqlConnection(cadenaConexion);
+            conexion.Open();
+            AsegurarTabla(conexion);
+
+            using var transaccion = conexion.BeginTransaction();
+            int folioDisponible = ObtenerMenorFolioDisponible(conexion);
+
             var nuevo = new CalculoTanque
             {
+                NumeroFolio = folioDisponible,
                 IdCliente = idClienteLimpio,
                 NombreReferencia = referenciaLimpia,
                 ModoCalculo = modo,
@@ -226,64 +269,62 @@ namespace LuxmanErp.Services
                 CostoTotalLamina = costoTotalLamina,
                 MaterialesJson = materialesLimpios,
                 CostoTotalMateriales = costoTotalMateriales,
-                Notas = notasLimpias
+                Notas = notasLimpias,
+                Eliminado = false
             };
-
-            using var conexion = new NpgsqlConnection(cadenaConexion);
-            conexion.Open();
-            AsegurarTabla(conexion);
 
             string jsonMateriales = JsonSerializer.Serialize(nuevo.MaterialesJson);
 
-            using var comando = new NpgsqlCommand(@"
+            using (var comando = new NpgsqlCommand(@"
                 INSERT INTO calculos_tanques (
-                    id_cliente, nombre_referencia, modo_calculo, litros_deseados,
+                    numero_folio, id_cliente, nombre_referencia, modo_calculo, litros_deseados,
                     radio_m, longitud_m, tipo_fondo,
                     diametro_m, volumen_cilindro_m3, volumen_fondo_m3, volumen_total_m3, volumen_m3,
                     litros_tanque, perimetro_m, area_lamina_m2,
                     medida_hoja, cantidad_hojas, precio_hoja, costo_total_lamina,
-                    materiales_json, costo_total_materiales, notas
+                    materiales_json, costo_total_materiales, notas, eliminado
                 )
                 VALUES (
-                    @id_cliente, @nombre_referencia, @modo_calculo, @litros_deseados,
+                    @numero_folio, @id_cliente, @nombre_referencia, @modo_calculo, @litros_deseados,
                     @radio_m, @longitud_m, @tipo_fondo,
                     @diametro_m, @volumen_cilindro_m3, @volumen_fondo_m3, @volumen_total_m3, @volumen_m3,
                     @litros_tanque, @perimetro_m, @area_lamina_m2,
                     @medida_hoja, @cantidad_hojas, @precio_hoja, @costo_total_lamina,
-                    @materiales_json, @costo_total_materiales, @notas
+                    @materiales_json, @costo_total_materiales, @notas, FALSE
                 )
-                RETURNING id_calculo, fecha_creacion;", conexion);
-
-            var paramCliente = comando.Parameters.AddWithValue("id_cliente", (object?)nuevo.IdCliente ?? DBNull.Value);
-            paramCliente.NpgsqlDbType = NpgsqlDbType.Integer;
-
-            comando.Parameters.AddWithValue("nombre_referencia", (object?)nuevo.NombreReferencia ?? DBNull.Value);
-            comando.Parameters.AddWithValue("modo_calculo", nuevo.ModoCalculo);
-            comando.Parameters.AddWithValue("litros_deseados", nuevo.LitrosDeseados);
-            comando.Parameters.AddWithValue("radio_m", nuevo.RadioM);
-            comando.Parameters.AddWithValue("longitud_m", nuevo.LongitudM);
-            comando.Parameters.AddWithValue("tipo_fondo", nuevo.TipoFondo);
-            comando.Parameters.AddWithValue("diametro_m", nuevo.DiametroM);
-            comando.Parameters.AddWithValue("volumen_cilindro_m3", nuevo.VolumenCilindroM3);
-            comando.Parameters.AddWithValue("volumen_fondo_m3", nuevo.VolumenFondoM3);
-            comando.Parameters.AddWithValue("volumen_total_m3", nuevo.VolumenTotalM3);
-            comando.Parameters.AddWithValue("volumen_m3", nuevo.VolumenM3);
-            comando.Parameters.AddWithValue("litros_tanque", nuevo.LitrosTanque);
-            comando.Parameters.AddWithValue("perimetro_m", nuevo.PerimetroM);
-            comando.Parameters.AddWithValue("area_lamina_m2", nuevo.AreaLaminaM2);
-            comando.Parameters.AddWithValue("medida_hoja", nuevo.MedidaHoja);
-            comando.Parameters.AddWithValue("cantidad_hojas", nuevo.CantidadHojas);
-            comando.Parameters.AddWithValue("precio_hoja", nuevo.PrecioHoja);
-            comando.Parameters.AddWithValue("costo_total_lamina", nuevo.CostoTotalLamina);
-
-            var paramJson = comando.Parameters.AddWithValue("materiales_json", jsonMateriales);
-            paramJson.NpgsqlDbType = NpgsqlDbType.Jsonb;
-
-            comando.Parameters.AddWithValue("costo_total_materiales", nuevo.CostoTotalMateriales);
-            comando.Parameters.AddWithValue("notas", (object?)nuevo.Notas ?? DBNull.Value);
-
-            using (var lector = comando.ExecuteReader())
+                RETURNING id_calculo, fecha_creacion;", conexion, transaccion))
             {
+                comando.Parameters.AddWithValue("numero_folio", nuevo.NumeroFolio);
+
+                var paramCliente = comando.Parameters.AddWithValue("id_cliente", (object?)nuevo.IdCliente ?? DBNull.Value);
+                paramCliente.NpgsqlDbType = NpgsqlDbType.Integer;
+
+                comando.Parameters.AddWithValue("nombre_referencia", (object?)nuevo.NombreReferencia ?? DBNull.Value);
+                comando.Parameters.AddWithValue("modo_calculo", nuevo.ModoCalculo);
+                comando.Parameters.AddWithValue("litros_deseados", nuevo.LitrosDeseados);
+                comando.Parameters.AddWithValue("radio_m", nuevo.RadioM);
+                comando.Parameters.AddWithValue("longitud_m", nuevo.LongitudM);
+                comando.Parameters.AddWithValue("tipo_fondo", nuevo.TipoFondo);
+                comando.Parameters.AddWithValue("diametro_m", nuevo.DiametroM);
+                comando.Parameters.AddWithValue("volumen_cilindro_m3", nuevo.VolumenCilindroM3);
+                comando.Parameters.AddWithValue("volumen_fondo_m3", nuevo.VolumenFondoM3);
+                comando.Parameters.AddWithValue("volumen_total_m3", nuevo.VolumenTotalM3);
+                comando.Parameters.AddWithValue("volumen_m3", nuevo.VolumenM3);
+                comando.Parameters.AddWithValue("litros_tanque", nuevo.LitrosTanque);
+                comando.Parameters.AddWithValue("perimetro_m", nuevo.PerimetroM);
+                comando.Parameters.AddWithValue("area_lamina_m2", nuevo.AreaLaminaM2);
+                comando.Parameters.AddWithValue("medida_hoja", nuevo.MedidaHoja);
+                comando.Parameters.AddWithValue("cantidad_hojas", nuevo.CantidadHojas);
+                comando.Parameters.AddWithValue("precio_hoja", nuevo.PrecioHoja);
+                comando.Parameters.AddWithValue("costo_total_lamina", nuevo.CostoTotalLamina);
+
+                var paramJson = comando.Parameters.AddWithValue("materiales_json", jsonMateriales);
+                paramJson.NpgsqlDbType = NpgsqlDbType.Jsonb;
+
+                comando.Parameters.AddWithValue("costo_total_materiales", nuevo.CostoTotalMateriales);
+                comando.Parameters.AddWithValue("notas", (object?)nuevo.Notas ?? DBNull.Value);
+
+                using var lector = comando.ExecuteReader();
                 if (lector.Read())
                 {
                     nuevo.IdCalculo = lector.GetInt32(0);
@@ -294,11 +335,12 @@ namespace LuxmanErp.Services
             if (nuevo.IdCliente != null)
             {
                 using var cmdCliente = new NpgsqlCommand(
-                    "SELECT nombre_cliente FROM clientes WHERE id_cliente = @id_cliente;", conexion);
+                    "SELECT nombre_cliente FROM clientes WHERE id_cliente = @id_cliente;", conexion, transaccion);
                 cmdCliente.Parameters.AddWithValue("id_cliente", nuevo.IdCliente.Value);
                 nuevo.NombreCliente = cmdCliente.ExecuteScalar() as string;
             }
 
+            transaccion.Commit();
             return nuevo;
         }
 
@@ -309,11 +351,12 @@ namespace LuxmanErp.Services
                    ct.diametro_m, ct.volumen_cilindro_m3, ct.volumen_fondo_m3, ct.volumen_total_m3, ct.volumen_m3,
                    ct.litros_tanque, ct.perimetro_m, ct.area_lamina_m2,
                    ct.medida_hoja, ct.cantidad_hojas, ct.precio_hoja, ct.costo_total_lamina,
-                   ct.materiales_json, ct.costo_total_materiales, ct.notas, ct.fecha_creacion
+                   ct.materiales_json, ct.costo_total_materiales, ct.notas, ct.fecha_creacion,
+                   ct.numero_folio, ct.eliminado
             FROM calculos_tanques ct
             LEFT JOIN clientes cl ON cl.id_cliente = ct.id_cliente";
 
-        public List<CalculoTanque> Listar()
+        public List<CalculoTanque> Listar(bool eliminados = false)
         {
             var lista = new List<CalculoTanque>();
 
@@ -322,7 +365,9 @@ namespace LuxmanErp.Services
             AsegurarTabla(conexion);
 
             using var comando = new NpgsqlCommand(
-                SelectColumnas + " ORDER BY ct.fecha_creacion DESC, ct.id_calculo DESC;", conexion);
+                SelectColumnas + " WHERE COALESCE(ct.eliminado, FALSE) = @eliminado ORDER BY ct.numero_folio ASC, ct.fecha_creacion DESC;",
+                conexion);
+            comando.Parameters.AddWithValue("eliminado", eliminados);
 
             using var lector = comando.ExecuteReader();
             while (lector.Read())
@@ -347,14 +392,91 @@ namespace LuxmanErp.Services
             return lector.Read() ? Mapear(lector) : null;
         }
 
+        public bool MoverAPapelera(int id_calculo)
+        {
+            using var conexion = new NpgsqlConnection(cadenaConexion);
+            conexion.Open();
+            AsegurarTabla(conexion);
+
+            using var comando = new NpgsqlCommand(@"
+                UPDATE calculos_tanques
+                SET eliminado = TRUE
+                WHERE id_calculo = @id_calculo AND NOT COALESCE(eliminado, FALSE);", conexion);
+            comando.Parameters.AddWithValue("id_calculo", id_calculo);
+            return comando.ExecuteNonQuery() > 0;
+        }
+
+        // restaura un registro desde la papelera; si su numero_folio ya fue ocupado, le reasigna el menor disponible
+        public CalculoTanque? Restaurar(int id_calculo)
+        {
+            using var conexion = new NpgsqlConnection(cadenaConexion);
+            conexion.Open();
+            AsegurarTabla(conexion);
+
+            using var transaccion = conexion.BeginTransaction();
+
+            int folioActual;
+            using (var cmdLeer = new NpgsqlCommand(@"
+                SELECT COALESCE(numero_folio, 0)
+                FROM calculos_tanques
+                WHERE id_calculo = @id_calculo AND COALESCE(eliminado, FALSE) = TRUE;", conexion, transaccion))
+            {
+                cmdLeer.Parameters.AddWithValue("id_calculo", id_calculo);
+                object? res = cmdLeer.ExecuteScalar();
+                if (res == null) return null;
+                folioActual = Convert.ToInt32(res);
+            }
+
+            bool ocupado = folioActual <= 0;
+            if (!ocupado)
+            {
+                using var cmdOcupado = new NpgsqlCommand(@"
+                    SELECT 1 FROM calculos_tanques
+                    WHERE NOT COALESCE(eliminado, FALSE)
+                      AND numero_folio = @folio
+                      AND id_calculo <> @id_calculo
+                    LIMIT 1;", conexion, transaccion);
+                cmdOcupado.Parameters.AddWithValue("folio", folioActual);
+                cmdOcupado.Parameters.AddWithValue("id_calculo", id_calculo);
+                ocupado = cmdOcupado.ExecuteScalar() != null;
+            }
+
+            int folioFinal = ocupado ? ObtenerMenorFolioDisponible(conexion) : folioActual;
+
+            using (var cmdRestaurar = new NpgsqlCommand(@"
+                UPDATE calculos_tanques
+                SET eliminado = FALSE, numero_folio = @folio_final
+                WHERE id_calculo = @id_calculo;", conexion, transaccion))
+            {
+                cmdRestaurar.Parameters.AddWithValue("folio_final", folioFinal);
+                cmdRestaurar.Parameters.AddWithValue("id_calculo", id_calculo);
+                cmdRestaurar.ExecuteNonQuery();
+            }
+
+            transaccion.Commit();
+            return ObtenerPorId(id_calculo);
+        }
+
+        public bool EliminarDefinitivo(int id_calculo)
+        {
+            using var conexion = new NpgsqlConnection(cadenaConexion);
+            conexion.Open();
+            AsegurarTabla(conexion);
+
+            using var comando = new NpgsqlCommand(
+                "DELETE FROM calculos_tanques WHERE id_calculo = @id_calculo;", conexion);
+            comando.Parameters.AddWithValue("id_calculo", id_calculo);
+            return comando.ExecuteNonQuery() > 0;
+        }
+
         private static CalculoTanque Mapear(NpgsqlDataReader lector)
         {
+            int idCalculo = lector.GetInt32(0);
             decimal volCilindro = lector.IsDBNull(10) ? 0m : lector.GetDecimal(10);
             decimal volFondo = lector.IsDBNull(11) ? 0m : lector.GetDecimal(11);
             decimal volTotal = lector.IsDBNull(12) ? 0m : lector.GetDecimal(12);
             decimal volLegacy = lector.IsDBNull(13) ? 0m : lector.GetDecimal(13);
 
-            // compatibilidad con registros previos antes de separar cilindro y fondo
             if (volTotal <= 0m && volLegacy > 0m)
             {
                 volTotal = volLegacy;
@@ -385,9 +507,13 @@ namespace LuxmanErp.Services
                 costoTotalMat = costoLamina;
             }
 
+            int numeroFolio = lector.IsDBNull(25) ? idCalculo : lector.GetInt32(25);
+            if (numeroFolio <= 0) numeroFolio = idCalculo;
+
             return new CalculoTanque
             {
-                IdCalculo = lector.GetInt32(0),
+                IdCalculo = idCalculo,
+                NumeroFolio = numeroFolio,
                 IdCliente = lector.IsDBNull(1) ? null : lector.GetInt32(1),
                 NombreCliente = lector.IsDBNull(2) ? null : lector.GetString(2),
                 NombreReferencia = lector.IsDBNull(3) ? null : lector.GetString(3),
@@ -411,7 +537,8 @@ namespace LuxmanErp.Services
                 MaterialesJson = materiales,
                 CostoTotalMateriales = costoTotalMat,
                 Notas = lector.IsDBNull(23) ? null : lector.GetString(23),
-                FechaCreacion = lector.IsDBNull(24) ? DateTime.Now : lector.GetDateTime(24)
+                FechaCreacion = lector.IsDBNull(24) ? DateTime.Now : lector.GetDateTime(24),
+                Eliminado = !lector.IsDBNull(26) && lector.GetBoolean(26)
             };
         }
     }

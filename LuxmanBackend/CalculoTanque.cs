@@ -32,6 +32,9 @@ namespace LuxmanErp.Models
         [JsonPropertyName("id_calculo")]
         public int IdCalculo { get; set; }
 
+        [JsonPropertyName("numero_folio")]
+        public int NumeroFolio { get; set; }
+
         [JsonPropertyName("id_cliente")]
         public int? IdCliente { get; set; }
 
@@ -100,6 +103,9 @@ namespace LuxmanErp.Models
 
         [JsonPropertyName("notas")]
         public string? Notas { get; set; }
+
+        [JsonPropertyName("eliminado")]
+        public bool Eliminado { get; set; }
 
         [JsonPropertyName("fecha_creacion")]
         public DateTime FechaCreacion { get; set; }
