@@ -12,6 +12,9 @@ namespace LuxmanErp.Models
         [JsonPropertyName("nombre_cliente")]
         public string NombreCliente { get; set; } = "";
 
+        [JsonPropertyName("sector")]
+        public string Sector { get; set; } = "Otro";
+
         [JsonPropertyName("rfc_cliente")]
         public string? RfcCliente { get; set; }
 
@@ -28,11 +31,14 @@ namespace LuxmanErp.Models
         public DateTime FechaAlta { get; set; }
     }
 
-    // datos para registrar un nuevo cliente desde la calculadora o el panel
+    // datos para registrar o editar un cliente desde la calculadora o el directorio
     public class ClienteRequestDTO
     {
         [JsonPropertyName("nombre_cliente")]
         public string? NombreCliente { get; set; }
+
+        [JsonPropertyName("sector")]
+        public string? Sector { get; set; }
 
         [JsonPropertyName("rfc_cliente")]
         public string? RfcCliente { get; set; }

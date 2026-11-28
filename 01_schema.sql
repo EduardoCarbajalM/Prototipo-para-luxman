@@ -1,26 +1,28 @@
--- script para crear las tablas de clientes, cotizaciones, calculos tecnicos y solicitudes de contacto
+-- script para crear las tablas de clientes, cotizaciones, calculos tecnicos, solicitudes y proyectos de venta
 
+DROP TABLE IF EXISTS proyectos_venta;
 DROP TABLE IF EXISTS calculos_tanques;
 DROP TABLE IF EXISTS solicitudes_contacto;
 DROP TABLE IF EXISTS cotizaciones;
 DROP TABLE IF EXISTS clientes;
 
--- tabla de clientes
+-- tabla de clientes con sector industrial
 CREATE TABLE clientes (
     id_cliente      SERIAL PRIMARY KEY,
     nombre_cliente  VARCHAR(150) NOT NULL,
+    sector          VARCHAR(60) NOT NULL DEFAULT 'Otro',
     rfc_cliente     VARCHAR(20),
-    telefono        VARCHAR(20),
+    telefono        VARCHAR(30),
     correo          VARCHAR(150),
     tiene_descuento BOOLEAN DEFAULT FALSE,
     fecha_alta      TIMESTAMP DEFAULT NOW()
 );
 
--- tabla donde se guardan las cotizaciones de venta
+-- tabla donde se guardan las cotizaciones rapidas heredadas
 CREATE TABLE cotizaciones (
     id_cotizacion       SERIAL PRIMARY KEY,
     numero_folio        INTEGER NOT NULL DEFAULT 1,
-    id_cliente          INTEGER REFERENCES clientes(id_cliente),
+    id_cliente          INTEGER REFERENCES clientes(id_cliente) ON DELETE SET NULL,
     radio_m             NUMERIC(10,4) DEFAULT 0,
     longitud_m          NUMERIC(10,4) DEFAULT 0,
     tipo_fondo          VARCHAR(30) DEFAULT 'Plano',
@@ -38,11 +40,11 @@ CREATE TABLE cotizaciones (
     fecha_creacion      TIMESTAMP DEFAULT NOW()
 );
 
--- tabla de la calculadora tecnica interna del Ing. Raul (dimensionamiento, fondos, materiales y papelera)
+-- tabla de la calculadora tecnica interna del Ing. Raul
 CREATE TABLE calculos_tanques (
     id_calculo             SERIAL PRIMARY KEY,
     numero_folio           INTEGER NOT NULL DEFAULT 1,
-    id_cliente             INTEGER REFERENCES clientes(id_cliente),
+    id_cliente             INTEGER REFERENCES clientes(id_cliente) ON DELETE SET NULL,
     nombre_referencia      VARCHAR(150),
     modo_calculo           VARCHAR(30) NOT NULL DEFAULT 'por_medidas',
     litros_deseados        NUMERIC(14,2) NOT NULL DEFAULT 0,
@@ -81,13 +83,37 @@ CREATE TABLE solicitudes_contacto (
     fecha_creacion TIMESTAMP DEFAULT NOW()
 );
 
+-- tabla central de ventas, cierre comercial y seguimiento de fabricacion (LUX-2026-001)
+CREATE TABLE proyectos_venta (
+    id_proyecto               SERIAL PRIMARY KEY,
+    numero_folio              INTEGER NOT NULL DEFAULT 1,
+    id_cliente                INTEGER REFERENCES clientes(id_cliente) ON DELETE SET NULL,
+    id_solicitud              INTEGER REFERENCES solicitudes_contacto(id_solicitud) ON DELETE SET NULL,
+    id_calculo                INTEGER REFERENCES calculos_tanques(id_calculo) ON DELETE SET NULL,
+    nombre_proyecto           VARCHAR(200) NOT NULL,
+    sector                    VARCHAR(60) NOT NULL DEFAULT 'Otro',
+    monto_cotizado            NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (monto_cotizado >= 0),
+    porcentaje_anticipo       NUMERIC(5,2) NOT NULL DEFAULT 0 CHECK (porcentaje_anticipo >= 0 AND porcentaje_anticipo <= 100),
+    monto_anticipo            NUMERIC(14,2) NOT NULL DEFAULT 0,
+    rfc_facturacion           VARCHAR(20),
+    razon_social_facturacion  VARCHAR(200),
+    estado_venta              VARCHAR(20) NOT NULL DEFAULT 'COTIZADO' CHECK (estado_venta IN ('COTIZADO', 'APROBADO', 'RECHAZADO')),
+    etapa_fabricacion         VARCHAR(80) NOT NULL DEFAULT 'Cotizado',
+    fecha_compromiso_entrega  DATE,
+    fecha_creacion            TIMESTAMP DEFAULT NOW(),
+    fecha_cierre              TIMESTAMP,
+    eliminado                 BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 CREATE INDEX idx_cotizaciones_cliente ON cotizaciones(id_cliente);
 CREATE INDEX idx_calculos_tanques_fecha ON calculos_tanques(fecha_creacion DESC);
 CREATE INDEX idx_calculos_tanques_cliente ON calculos_tanques(id_cliente);
 CREATE INDEX idx_calculos_tanques_eliminado ON calculos_tanques(eliminado, numero_folio);
+CREATE INDEX idx_proyectos_venta_activo ON proyectos_venta(eliminado, numero_folio);
+CREATE INDEX idx_proyectos_venta_cliente ON proyectos_venta(id_cliente);
 
--- clientes iniciales precargados para el Ing. Raul
-INSERT INTO clientes (nombre_cliente, rfc_cliente, telefono, correo, tiene_descuento) VALUES
-    ('Cosméticos Naturales Ideal SA de CV', NULL, NULL, NULL, FALSE),
-    ('Farbe SA de CV', NULL, NULL, NULL, FALSE),
-    ('Lacteos del Norte SA de CV', 'LNO010101ABC', '8112345678', 'compras@lacteosdelnorte.com', TRUE);
+-- clientes iniciales precargados para el Ing. Raul con su sector real
+INSERT INTO clientes (nombre_cliente, sector, rfc_cliente, telefono, correo, tiene_descuento) VALUES
+    ('Cosméticos Naturales Ideal SA de CV', 'Cosmética', NULL, NULL, NULL, FALSE),
+    ('Farbe SA de CV', 'Química', NULL, NULL, NULL, FALSE),
+    ('Lacteos del Norte SA de CV', 'Agroalimentaria', 'LNO010101ABC', '8112345678', 'compras@lacteosdelnorte.com', TRUE);

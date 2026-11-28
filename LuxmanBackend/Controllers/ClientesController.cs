@@ -50,6 +50,29 @@ namespace LuxmanErp.Controllers
             }
         }
 
+        [HttpPut("{id_cliente}")]
+        public IActionResult Actualizar(int id_cliente, [FromBody] ClienteRequestDTO datos)
+        {
+            if (datos == null)
+                return BadRequest("No se recibieron los datos a actualizar.");
+
+            try
+            {
+                var actualizado = servicioClientes.Actualizar(id_cliente, datos);
+                if (actualizado == null)
+                    return NotFound("No se encontró el cliente especificado.");
+                return Ok(actualizado);
+            }
+            catch (ArgumentException errorValidacion)
+            {
+                return BadRequest(errorValidacion.Message);
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al actualizar el cliente: " + error.Message);
+            }
+        }
+
         [HttpDelete("{id_cliente}")]
         public IActionResult Eliminar(int id_cliente)
         {

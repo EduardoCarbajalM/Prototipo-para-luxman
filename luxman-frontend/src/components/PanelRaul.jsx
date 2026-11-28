@@ -1,132 +1,434 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import {
+  Building2,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  Layers,
+  Calculator,
+  Trash2,
+  Send,
+  Settings2,
+} from 'lucide-react';
 import FormularioCotizacion from './FormularioCotizacion';
 import ChatMemebretes from './ChatMemebretes';
+import VentasProyectos, { SECTORES_LUXMAN } from './VentasProyectos';
 import { URL_BASE, obtenerTokenAdmin } from '../api';
 
-// ---------- DATOS TEMPORALES DEL LEAD SCORING ----------
-const LISTA_LEADS = [
-  { empresa: 'Lácteos del Norte SA de CV', region: 'Norte', sector: 'Alimenticia', probabilidad: 92 },
-  { empresa: 'Laboratorios Farmex', region: 'Centro', sector: 'Farmacéutica', probabilidad: 85 },
-  { empresa: 'Químicos del Bajío', region: 'Bajío', sector: 'Química', probabilidad: 78 },
-  { empresa: 'Cosméticos Aurora', region: 'Occidente', sector: 'Cosmética', probabilidad: 64 },
-  { empresa: 'Aguas Tratadas del Sur', region: 'Sur', sector: 'Tratamiento de Aguas', probabilidad: 55 },
-  { empresa: 'Petroquímica del Golfo', region: 'Golfo', sector: 'Petroquímica', probabilidad: 48 },
-  { empresa: 'Lácteos La Pradera', region: 'Centro', sector: 'Alimenticia', probabilidad: 71 },
-  { empresa: 'Farmacéutica Andina MX', region: 'Norte', sector: 'Farmacéutica', probabilidad: 33 },
-];
-
-const LISTA_REGIONES = ['Todas', 'Norte', 'Centro', 'Bajío', 'Occidente', 'Sur', 'Golfo'];
-const LISTA_SECTORES = [
-  'Todos',
-  'Farmacéutica',
-  'Alimenticia',
-  'Química',
-  'Cosmética',
-  'Tratamiento de Aguas',
-  'Petroquímica',
-];
-
-// Devuelve el color de Bootstrap según la probabilidad
-const obtenerColor = (probabilidad) => {
-  if (probabilidad >= 75) return 'success';
-  if (probabilidad >= 50) return 'warning';
-  return 'danger';
-};
-
-const obtenerNivel = (probabilidad) => {
-  if (probabilidad >= 75) return 'Alta';
-  if (probabilidad >= 50) return 'Media';
-  return 'Baja';
-};
-
-// ---------- SUBMÓDULO 1: DIRECTORIO CRM ----------
-function DirectorioCRM() {
-  const [regionElegida, setRegionElegida] = useState('Todas');
-  const [sectorElegido, setSectorElegido] = useState('Todos');
-
-  const leadsFiltrados = LISTA_LEADS.filter((lead) => {
-    const cumpleRegion = regionElegida === 'Todas' || lead.region === regionElegida;
-    const cumpleSector = sectorElegido === 'Todos' || lead.sector === sectorElegido;
-    return cumpleRegion && cumpleSector;
-  }).sort((a, b) => b.probabilidad - a.probabilidad);
-
+// ---------- SUBMÓDULO 1: DASHBOARD EJECUTIVO (PLACEHOLDER) ----------
+function DashboardEjecutivo({ alCambiarSubmodulo }) {
   return (
     <div className="p-4">
-      <h3 className="fw-bold mb-1">Directorio CRM</h3>
-      <p className="text-secondary mb-4">
-        Lead Scoring: probabilidad de compra por región y sector.
-      </p>
+      <div className="card shadow-sm border-0 p-4 p-md-5 text-center mx-auto" style={{ maxWidth: '760px' }}>
+        <div className="mb-3 text-primary">
+          <Layers size={42} strokeWidth={2} />
+        </div>
+        <h3 className="fw-bold text-dark mb-2">Dashboard Ejecutivo Luxman</h3>
+        <p className="text-secondary mb-4">
+          Este panel concentrará las métricas en tiempo real de ingresos, anticipos recibidos,
+          conversión de solicitudes y carga de fabricación en planta. Se conectará en el siguiente paso.
+        </p>
+        <div className="d-flex flex-wrap justify-content-center gap-2">
+          <button
+            type="button"
+            onClick={() => alCambiarSubmodulo('cotizador')}
+            className="btn btn-primary d-inline-flex align-items-center gap-2"
+          >
+            <Calculator size={16} />
+            <span>Ir a Calculadora Técnica</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => alCambiarSubmodulo('solicitudes')}
+            className="btn btn-outline-dark"
+          >
+            Ver Solicitudes Clientes
+          </button>
+          <button
+            type="button"
+            onClick={() => alCambiarSubmodulo('ventas')}
+            className="btn btn-outline-primary"
+          >
+            Ir a Ventas y Proyectos
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      <div className="row g-3 mb-4">
-        <div className="col-md-6">
-          <label className="form-label fw-semibold">Región</label>
+// ---------- SUBMÓDULO 6: DIRECTORIO DE CLIENTES (POSTGRESQL REAL) ----------
+function DirectorioClientes() {
+  const [clientes, setClientes] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+  const [aviso, setAviso] = useState('');
+
+  const [sectorFiltro, setSectorFiltro] = useState('Todos');
+  const [busqueda, setBusqueda] = useState('');
+
+  // Estado para alta o edición de cliente (null = cerrado, 'nuevo' = alta, id_cliente = edición)
+  const [modoEditor, setModoEditor] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [formCliente, setFormCliente] = useState({
+    nombre_cliente: '',
+    sector: 'Agroalimentaria',
+    rfc_cliente: '',
+    telefono: '',
+    correo: '',
+  });
+
+  const cargarClientes = useCallback(async () => {
+    setCargando(true);
+    try {
+      const respuesta = await fetch(`${URL_BASE}/api/clientes`);
+      if (!respuesta.ok) throw new Error();
+      const datos = await respuesta.json();
+      setClientes(Array.isArray(datos) ? datos : []);
+      setError('');
+    } catch {
+      setError('No se pudo cargar el directorio de clientes desde PostgreSQL.');
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarClientes();
+  }, [cargarClientes]);
+
+  const abrirNuevo = () => {
+    setModoEditor('nuevo');
+    setFormCliente({
+      nombre_cliente: '',
+      sector: 'Agroalimentaria',
+      rfc_cliente: '',
+      telefono: '',
+      correo: '',
+    });
+    setError('');
+  };
+
+  const abrirEdicion = (cl) => {
+    setModoEditor(cl.id_cliente);
+    setFormCliente({
+      nombre_cliente: cl.nombre_cliente || '',
+      sector: cl.sector || 'Otro',
+      rfc_cliente: cl.rfc_cliente || '',
+      telefono: cl.telefono || '',
+      correo: cl.correo || '',
+    });
+    setError('');
+  };
+
+  const guardarCliente = async (evento) => {
+    evento.preventDefault();
+    if (!formCliente.nombre_cliente.trim()) {
+      setError('El nombre del cliente es obligatorio.');
+      return;
+    }
+
+    setGuardando(true);
+    setError('');
+    try {
+      const esNuevo = modoEditor === 'nuevo';
+      const url = esNuevo
+        ? `${URL_BASE}/api/clientes`
+        : `${URL_BASE}/api/clientes/${modoEditor}`;
+      const metodo = esNuevo ? 'POST' : 'PUT';
+
+      const respuesta = await fetch(url, {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre_cliente: formCliente.nombre_cliente.trim(),
+          sector: formCliente.sector,
+          rfc_cliente: formCliente.rfc_cliente.trim() || null,
+          telefono: formCliente.telefono.trim() || null,
+          correo: formCliente.correo.trim() || null,
+        }),
+      });
+
+      if (!respuesta.ok) {
+        throw new Error((await respuesta.text()) || 'No se pudo guardar el cliente.');
+      }
+
+      setAviso(esNuevo ? 'Cliente agregado al directorio.' : 'Datos del cliente actualizados.');
+      setModoEditor(null);
+      await cargarClientes();
+    } catch (err) {
+      setError(err.message || 'Error al guardar el cliente.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const eliminarCliente = async (cl) => {
+    if (!window.confirm(`¿Eliminar a "${cl.nombre_cliente}" del directorio?`)) return;
+    try {
+      const respuesta = await fetch(`${URL_BASE}/api/clientes/${cl.id_cliente}`, {
+        method: 'DELETE',
+      });
+      if (!respuesta.ok) throw new Error(await respuesta.text());
+      setAviso(`Cliente "${cl.nombre_cliente}" eliminado.`);
+      if (modoEditor === cl.id_cliente) setModoEditor(null);
+      await cargarClientes();
+    } catch (err) {
+      setError('No se pudo eliminar el cliente: ' + err.message);
+    }
+  };
+
+  const clientesFiltrados = clientes.filter((cl) => {
+    const cumpleSector = sectorFiltro === 'Todos' || (cl.sector || 'Otro') === sectorFiltro;
+    const termino = busqueda.trim().toLowerCase();
+    const cumpleBusqueda =
+      !termino ||
+      (cl.nombre_cliente || '').toLowerCase().includes(termino) ||
+      (cl.rfc_cliente || '').toLowerCase().includes(termino) ||
+      (cl.correo || '').toLowerCase().includes(termino);
+    return cumpleSector && cumpleBusqueda;
+  });
+
+  return (
+    <div className="p-3 p-md-4">
+      <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+          <h3 className="fw-bold mb-1 d-flex align-items-center gap-2">
+            <Building2 size={24} className="text-primary" />
+            <span>Directorio de Clientes</span>
+          </h3>
+          <p className="text-secondary small mb-0">
+            Catálogo real conectado a PostgreSQL con clasificación por sector industrial y datos fiscales/contacto.
+          </p>
+        </div>
+
+        <div className="d-flex gap-2">
+          <button type="button" onClick={abrirNuevo} className="btn btn-primary btn-sm fw-semibold">
+            + Nuevo cliente
+          </button>
+          <button
+            type="button"
+            onClick={cargarClientes}
+            disabled={cargando}
+            className="btn btn-outline-secondary btn-sm"
+          >
+            Actualizar
+          </button>
+        </div>
+      </div>
+
+      {aviso && (
+        <div className="alert alert-success py-2 small d-flex justify-content-between align-items-center">
+          <span>{aviso}</span>
+          <button type="button" className="btn-close btn-sm" onClick={() => setAviso('')} />
+        </div>
+      )}
+
+      {error && (
+        <div className="alert alert-danger py-2 small d-flex align-items-center gap-2">
+          <AlertTriangle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {modoEditor !== null && (
+        <form onSubmit={guardarCliente} className="card shadow-sm border-primary-subtle mb-4">
+          <div className="card-body p-3 p-md-4">
+            <h6 className="fw-bold text-dark mb-3">
+              {modoEditor === 'nuevo' ? 'Registrar Nuevo Cliente' : 'Editar Datos del Cliente'}
+            </h6>
+            <div className="row g-3">
+              <div className="col-md-5">
+                <label className="form-label fw-semibold small mb-1">Nombre / Razón social *</label>
+                <input
+                  type="text"
+                  maxLength={150}
+                  required
+                  className="form-control form-control-sm"
+                  value={formCliente.nombre_cliente}
+                  onChange={(e) =>
+                    setFormCliente((prev) => ({ ...prev, nombre_cliente: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div className="col-md-3">
+                <label className="form-label fw-semibold small mb-1">Sector industrial</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={formCliente.sector}
+                  onChange={(e) => setFormCliente((prev) => ({ ...prev, sector: e.target.value }))}
+                >
+                  {SECTORES_LUXMAN.map((sec) => (
+                    <option key={sec} value={sec}>
+                      {sec}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-md-4">
+                <label className="form-label fw-semibold small mb-1">RFC</label>
+                <input
+                  type="text"
+                  maxLength={20}
+                  className="form-control form-control-sm text-uppercase"
+                  placeholder="Opcional"
+                  value={formCliente.rfc_cliente}
+                  onChange={(e) =>
+                    setFormCliente((prev) => ({
+                      ...prev,
+                      rfc_cliente: e.target.value.toUpperCase(),
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="col-md-4">
+                <label className="form-label fw-semibold small mb-1">Teléfono</label>
+                <input
+                  type="text"
+                  maxLength={30}
+                  className="form-control form-control-sm"
+                  placeholder="Opcional"
+                  value={formCliente.telefono}
+                  onChange={(e) => setFormCliente((prev) => ({ ...prev, telefono: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-md-5">
+                <label className="form-label fw-semibold small mb-1">Correo electrónico</label>
+                <input
+                  type="email"
+                  maxLength={150}
+                  className="form-control form-control-sm"
+                  placeholder="Opcional"
+                  value={formCliente.correo}
+                  onChange={(e) => setFormCliente((prev) => ({ ...prev, correo: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-md-3 d-flex align-items-end gap-2">
+                <button
+                  type="submit"
+                  disabled={guardando}
+                  className="btn btn-success btn-sm fw-semibold flex-grow-1"
+                >
+                  {guardando ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoEditor(null)}
+                  className="btn btn-outline-secondary btn-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      )}
+
+      <div className="row g-3 mb-3">
+        <div className="col-md-5">
+          <label className="form-label fw-semibold small mb-1">Filtrar por sector</label>
           <select
             className="form-select"
-            value={regionElegida}
-            onChange={(e) => setRegionElegida(e.target.value)}
+            value={sectorFiltro}
+            onChange={(e) => setSectorFiltro(e.target.value)}
           >
-            {LISTA_REGIONES.map((region) => (
-              <option key={region} value={region}>{region}</option>
+            <option value="Todos">Todos los sectores</option>
+            {SECTORES_LUXMAN.map((sec) => (
+              <option key={sec} value={sec}>
+                {sec}
+              </option>
             ))}
           </select>
         </div>
-        <div className="col-md-6">
-          <label className="form-label fw-semibold">Sector</label>
-          <select
-            className="form-select"
-            value={sectorElegido}
-            onChange={(e) => setSectorElegido(e.target.value)}
-          >
-            {LISTA_SECTORES.map((sector) => (
-              <option key={sector} value={sector}>{sector}</option>
-            ))}
-          </select>
+
+        <div className="col-md-7">
+          <label className="form-label fw-semibold small mb-1">Buscar cliente</label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Buscar por empresa, RFC o correo..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
         </div>
       </div>
 
       <div className="card shadow-sm">
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0">
+          <table className="table table-hover align-middle mb-0 small">
             <thead className="table-dark">
               <tr>
                 <th>#</th>
-                <th>Empresa</th>
-                <th>Región</th>
+                <th>Cliente / Razón Social</th>
                 <th>Sector</th>
-                <th style={{ minWidth: '200px' }}>Probabilidad de compra</th>
-                <th>Nivel</th>
+                <th>RFC</th>
+                <th>Contacto</th>
+                <th className="text-end">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {leadsFiltrados.map((lead, indice) => (
-                <tr key={lead.empresa}>
-                  <td>{indice + 1}</td>
-                  <td className="fw-semibold">{lead.empresa}</td>
-                  <td>{lead.region}</td>
-                  <td>{lead.sector}</td>
-                  <td>
-                    <div className="d-flex align-items-center gap-2">
-                      <div className="progress flex-grow-1" style={{ height: '10px' }}>
-                        <div
-                          className={`progress-bar bg-${obtenerColor(lead.probabilidad)}`}
-                          style={{ width: `${lead.probabilidad}%` }}
-                        />
-                      </div>
-                      <span className="fw-bold small">{lead.probabilidad}%</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge text-bg-${obtenerColor(lead.probabilidad)}`}>
-                      {obtenerNivel(lead.probabilidad)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {leadsFiltrados.length === 0 && (
+              {cargando && (
                 <tr>
                   <td colSpan="6" className="text-center text-secondary py-4">
-                    No hay leads con esos filtros.
+                    <Loader2 size={18} className="mb-spinner me-2" />
+                    Cargando clientes...
+                  </td>
+                </tr>
+              )}
+
+              {!cargando &&
+                clientesFiltrados.map((cl, idx) => (
+                  <tr key={cl.id_cliente}>
+                    <td>{idx + 1}</td>
+                    <td className="fw-semibold text-dark">{cl.nombre_cliente}</td>
+                    <td>
+                      <span className="badge text-bg-light border text-dark">
+                        {cl.sector || 'Otro'}
+                      </span>
+                    </td>
+                    <td className="font-monospace">{cl.rfc_cliente || '—'}</td>
+                    <td>
+                      {cl.correo && (
+                        <a href={`mailto:${cl.correo}`} className="d-block text-break">
+                          {cl.correo}
+                        </a>
+                      )}
+                      {cl.telefono && <a href={`tel:${cl.telefono}`}>{cl.telefono}</a>}
+                      {!cl.correo && !cl.telefono && <span className="text-secondary">—</span>}
+                    </td>
+                    <td className="text-end text-nowrap">
+                      <div className="d-inline-flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => abrirEdicion(cl)}
+                          className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+                        >
+                          <Settings2 size={14} />
+                          <span>Editar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => eliminarCliente(cl)}
+                          className="btn btn-outline-danger btn-sm"
+                          title="Eliminar cliente"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+              {!cargando && clientesFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="text-center text-secondary py-4">
+                    No hay clientes registrados con esos filtros.
                   </td>
                 </tr>
               )}
@@ -138,12 +440,13 @@ function DirectorioCRM() {
   );
 }
 
-// ---------- SUBMÓDULO: SOLICITUDES WEB (formulario de la landing) ----------
-function SolicitudesWeb({ alSesionExpirada }) {
+// ---------- SUBMÓDULO 4: SOLICITUDES CLIENTES (FORMULARIO DE LA LANDING) ----------
+function SolicitudesClientes({ alSesionExpirada, alConvertirAProyecto }) {
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('pendientes');
+  const [idConvirtiendo, setIdConvirtiendo] = useState(null);
 
   const cabeceras = () => ({
     'Content-Type': 'application/json',
@@ -193,6 +496,58 @@ function SolicitudesWeb({ alSesionExpirada }) {
     }
   };
 
+  // Crea o vincula el cliente en PostgreSQL, marca la solicitud como atendida y abre Ventas y Proyectos
+  const convertirSolicitudAProyecto = async (solicitud) => {
+    setIdConvirtiendo(solicitud.id_solicitud);
+    setError('');
+    try {
+      const nombreCliente = (solicitud.empresa || '').trim() || solicitud.nombre.trim();
+
+      const resCliente = await fetch(`${URL_BASE}/api/clientes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre_cliente: nombreCliente,
+          sector: 'Otro',
+          telefono: solicitud.telefono,
+          correo: solicitud.correo,
+        }),
+      });
+
+      if (!resCliente.ok) {
+        throw new Error((await resCliente.text()) || 'No se pudo vincular el cliente.');
+      }
+
+      const clienteVinculado = await resCliente.json();
+
+      if (!solicitud.atendida) {
+        const resAtendida = await fetch(
+          `${URL_BASE}/api/solicitudes/${solicitud.id_solicitud}/atendida`,
+          { method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ atendida: true }) }
+        );
+        if (resAtendida.status === 401) {
+          alSesionExpirada();
+          return;
+        }
+      }
+
+      const descripcionEquipo = solicitud.tipo_equipo
+        ? `${solicitud.tipo_equipo} — ${clienteVinculado.nombre_cliente}`
+        : `Proyecto para ${clienteVinculado.nombre_cliente}`;
+
+      alConvertirAProyecto({
+        id_cliente: clienteVinculado.id_cliente,
+        id_solicitud: solicitud.id_solicitud,
+        nombre_proyecto: descripcionEquipo,
+        sector: clienteVinculado.sector || 'Otro',
+      });
+    } catch (err) {
+      setError(err.message || 'No se pudo convertir la solicitud en proyecto.');
+    } finally {
+      setIdConvirtiendo(null);
+    }
+  };
+
   const visibles = solicitudes.filter((s) => {
     if (filtro === 'pendientes') return !s.atendida;
     if (filtro === 'atendidas') return s.atendida;
@@ -201,13 +556,12 @@ function SolicitudesWeb({ alSesionExpirada }) {
   const totalPendientes = solicitudes.filter((s) => !s.atendida).length;
 
   return (
-    <div className="p-4">
+    <div className="p-3 p-md-4">
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-          <h3 className="fw-bold mb-1">Solicitudes Web</h3>
+          <h3 className="fw-bold mb-1">Solicitudes Clientes</h3>
           <p className="text-secondary mb-0">
-            Interesados en cotizar que dejaron sus datos en la landing page.
-            {' '}
+            Prospectos reales recibidos desde la landing page.{' '}
             <strong>{totalPendientes}</strong> pendiente{totalPendientes === 1 ? '' : 's'}.
           </p>
         </div>
@@ -240,11 +594,11 @@ function SolicitudesWeb({ alSesionExpirada }) {
         ))}
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
       <div className="card shadow-sm">
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0">
+          <table className="table table-hover align-middle mb-0 small">
             <thead className="table-dark">
               <tr>
                 <th>Fecha</th>
@@ -252,14 +606,15 @@ function SolicitudesWeb({ alSesionExpirada }) {
                 <th>Empresa</th>
                 <th>Contacto</th>
                 <th>Equipo</th>
-                <th style={{ minWidth: '220px' }}>Mensaje</th>
+                <th style={{ minWidth: '200px' }}>Mensaje</th>
                 <th>Estado</th>
+                <th className="text-end">Flujo Comercial</th>
               </tr>
             </thead>
             <tbody>
               {cargando && (
                 <tr>
-                  <td colSpan="7" className="text-center text-secondary py-4">
+                  <td colSpan="8" className="text-center text-secondary py-4">
                     Cargando solicitudes...
                   </td>
                 </tr>
@@ -267,7 +622,7 @@ function SolicitudesWeb({ alSesionExpirada }) {
               {!cargando &&
                 visibles.map((s) => (
                   <tr key={s.id_solicitud}>
-                    <td className="small text-nowrap">
+                    <td className="text-nowrap">
                       {new Date(
                         s.fecha_creacion?.endsWith('Z') ? s.fecha_creacion : `${s.fecha_creacion}Z`
                       ).toLocaleString('es-MX', {
@@ -277,12 +632,14 @@ function SolicitudesWeb({ alSesionExpirada }) {
                     </td>
                     <td className="fw-semibold">{s.nombre}</td>
                     <td>{s.empresa || <span className="text-secondary">—</span>}</td>
-                    <td className="small">
-                      <a href={`mailto:${s.correo}`} className="d-block text-break">{s.correo}</a>
+                    <td>
+                      <a href={`mailto:${s.correo}`} className="d-block text-break">
+                        {s.correo}
+                      </a>
                       <a href={`tel:${s.telefono}`}>{s.telefono}</a>
                     </td>
-                    <td className="small">{s.tipo_equipo || <span className="text-secondary">—</span>}</td>
-                    <td className="small" style={{ whiteSpace: 'pre-wrap' }}>
+                    <td>{s.tipo_equipo || <span className="text-secondary">—</span>}</td>
+                    <td style={{ whiteSpace: 'pre-wrap' }}>
                       {s.mensaje || <span className="text-secondary">—</span>}
                     </td>
                     <td>
@@ -295,11 +652,31 @@ function SolicitudesWeb({ alSesionExpirada }) {
                         {s.atendida ? 'Atendida' : 'Pendiente'}
                       </button>
                     </td>
+                    <td className="text-end text-nowrap">
+                      <button
+                        type="button"
+                        disabled={idConvirtiendo === s.id_solicitud}
+                        onClick={() => convertirSolicitudAProyecto(s)}
+                        className="btn btn-primary btn-sm fw-semibold d-inline-flex align-items-center gap-1"
+                      >
+                        {idConvirtiendo === s.id_solicitud ? (
+                          <>
+                            <Loader2 size={14} className="mb-spinner" />
+                            <span>Vinculando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send size={13} />
+                            <span>Convertir a Proyecto</span>
+                          </>
+                        )}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               {!cargando && visibles.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="text-center text-secondary py-4">
+                  <td colSpan="8" className="text-center text-secondary py-4">
                     No hay solicitudes en esta vista.
                   </td>
                 </tr>
@@ -312,7 +689,7 @@ function SolicitudesWeb({ alSesionExpirada }) {
   );
 }
 
-// ---------- SUBMÓDULO 3: ACTA DE ENTREGA LOGÍSTICA ----------
+// ---------- SUBMÓDULO 7: ACTA DE ENTREGA LOGÍSTICA ----------
 function ActaEntrega() {
   const lienzoRef = useRef(null);
   const [dibujando, setDibujando] = useState(false);
@@ -325,7 +702,6 @@ function ActaEntrega() {
   const [mensajeError, setMensajeError] = useState('');
   const [actaRegistrada, setActaRegistrada] = useState(null);
 
-  // Calcula la posición del dedo/mouse dentro del canvas
   const obtenerPosicion = (evento) => {
     const lienzo = lienzoRef.current;
     const caja = lienzo.getBoundingClientRect();
@@ -395,7 +771,6 @@ function ActaEntrega() {
     setHayFirma(false);
   };
 
-  // Vista cuando el acta ya fue firmada
   if (actaRegistrada) {
     return (
       <div className="p-4">
@@ -429,7 +804,7 @@ function ActaEntrega() {
     <div className="p-4">
       <h3 className="fw-bold mb-1">Acta de Entrega Logística</h3>
       <p className="text-secondary mb-4">
-        Simulador de firma digital de recepción del equipo.
+        Recepción de equipo con firma digital en sitio.
       </p>
 
       <form onSubmit={registrarActa} className="card shadow-sm">
@@ -442,7 +817,7 @@ function ActaEntrega() {
                 className="form-control"
                 value={cliente}
                 onChange={(e) => setCliente(e.target.value)}
-                placeholder="Ej. Lácteos del Norte SA de CV"
+                placeholder="Ej. Cosméticos Naturales Ideal SA de CV"
               />
             </div>
             <div className="col-md-6">
@@ -496,8 +871,8 @@ function ActaEntrega() {
               />
               <button
                 type="button"
-                className="btn btn-outline-secondary btn-sm mt-2"
                 onClick={limpiarFirma}
+                className="btn btn-outline-secondary btn-sm mt-2"
               >
                 Limpiar firma
               </button>
@@ -517,18 +892,27 @@ function ActaEntrega() {
   );
 }
 
-// ---------- CONTENEDOR PRINCIPAL DEL PANEL ----------
+// ---------- CONTENEDOR PRINCIPAL DEL PANEL DEL ING. RAÚL ----------
 function PanelRaul({ alCerrarSesion }) {
-  // Pestaña activa por defecto: Cotizador Técnico
+  // Vista activa por defecto: Calculadora Técnica ('cotizador')
   const [submoduloActual, setSubmoduloActual] = useState('cotizador');
+  const [borradorProyecto, setBorradorProyecto] = useState(null);
 
+  // Orden exacto de las 7 opciones solicitado
   const opcionesMenu = [
+    { id: 'dashboard', texto: 'Dashboard Ejecutivo' },
     { id: 'cotizador', texto: 'Calculadora Técnica' },
-    { id: 'crm', texto: 'Directorio CRM' },
-    { id: 'solicitudes', texto: 'Solicitudes Web' },
-    { id: 'acta', texto: 'Acta de Entrega Logística' },
     { id: 'memebretes', texto: 'Generador de Membretes' },
+    { id: 'solicitudes', texto: 'Solicitudes Clientes' },
+    { id: 'ventas', texto: 'Ventas y Proyectos' },
+    { id: 'crm', texto: 'Directorio de Clientes' },
+    { id: 'acta', texto: 'Acta de Entrega Logística' },
   ];
+
+  const manejarConvertirSolicitud = (datosPrecargados) => {
+    setBorradorProyecto(datosPrecargados);
+    setSubmoduloActual('ventas');
+  };
 
   return (
     <div className="row g-0 min-vh-100">
@@ -568,13 +952,27 @@ function PanelRaul({ alCerrarSesion }) {
           key={submoduloActual}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.35 }}
         >
+          {submoduloActual === 'dashboard' && (
+            <DashboardEjecutivo alCambiarSubmodulo={setSubmoduloActual} />
+          )}
           {submoduloActual === 'cotizador' && <FormularioCotizacion />}
-          {submoduloActual === 'crm' && <DirectorioCRM />}
-          {submoduloActual === 'solicitudes' && <SolicitudesWeb alSesionExpirada={alCerrarSesion} />}
-          {submoduloActual === 'acta' && <ActaEntrega />}
           {submoduloActual === 'memebretes' && <ChatMemebretes />}
+          {submoduloActual === 'solicitudes' && (
+            <SolicitudesClientes
+              alSesionExpirada={alCerrarSesion}
+              alConvertirAProyecto={manejarConvertirSolicitud}
+            />
+          )}
+          {submoduloActual === 'ventas' && (
+            <VentasProyectos
+              borradorInicial={borradorProyecto}
+              alConsumirBorrador={() => setBorradorProyecto(null)}
+            />
+          )}
+          {submoduloActual === 'crm' && <DirectorioClientes />}
+          {submoduloActual === 'acta' && <ActaEntrega />}
         </motion.div>
       </main>
     </div>

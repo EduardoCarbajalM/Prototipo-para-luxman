@@ -1,3 +1,4 @@
+using System;
 using LuxmanErp.Services;
 using QuestPDF.Infrastructure;
 
@@ -8,12 +9,13 @@ var constructor = WebApplication.CreateBuilder(args);
 
 constructor.Services.AddControllers();
 
-// registramos los servicios de postgres, clientes, calculos tecnicos y mongo
+// registramos los servicios de postgres, clientes, calculos tecnicos, ventas y mongo
 constructor.Services.AddScoped<ClienteService>();
 constructor.Services.AddScoped<CotizacionService>();
 constructor.Services.AddScoped<PdfService>();
 constructor.Services.AddScoped<CalculoTanqueService>();
 constructor.Services.AddScoped<CalculoTanquePdfService>();
+constructor.Services.AddScoped<ProyectoVentaService>();
 constructor.Services.AddScoped<SolicitudContactoService>();
 constructor.Services.AddSingleton<AdminAuthService>();
 constructor.Services.AddSingleton<MemebreteRepository>();
@@ -32,6 +34,20 @@ constructor.Services.AddCors(opciones =>
 });
 
 var aplicacion = constructor.Build();
+
+// migracion automatica segura al arrancar el backend
+using (var alcance = aplicacion.Services.CreateScope())
+{
+    try
+    {
+        var servicioProyectos = alcance.ServiceProvider.GetRequiredService<ProyectoVentaService>();
+        servicioProyectos.AsegurarEsquemaInicial();
+    }
+    catch (Exception errorMigracion)
+    {
+        Console.WriteLine("Aviso al inicializar esquema PostgreSQL en arranque: " + errorMigracion.Message);
+    }
+}
 
 aplicacion.UseCors("PermitirFrontendReact");
 aplicacion.UseAuthorization();
