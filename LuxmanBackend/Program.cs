@@ -16,6 +16,7 @@ constructor.Services.AddScoped<PdfService>();
 constructor.Services.AddScoped<CalculoTanqueService>();
 constructor.Services.AddScoped<CalculoTanquePdfService>();
 constructor.Services.AddScoped<ProyectoVentaService>();
+constructor.Services.AddScoped<FacturaPdfService>();
 constructor.Services.AddScoped<DashboardService>();
 constructor.Services.AddScoped<ActaEntregaService>();
 constructor.Services.AddScoped<ActaEntregaPdfService>();

@@ -10,10 +10,11 @@ using LuxmanErp.Models;
 
 namespace LuxmanErp.Services
 {
-    // servicio central de ventas, cierre comercial, etapas de fabricacion y seguimiento publico
+    // servicio central de ventas, cierre comercial, facturacion, etapas de fabricacion y seguimiento publico
     public class ProyectoVentaService
     {
         private readonly string cadenaConexion;
+        private const decimal TasaIva = 0.16m;
 
         public static readonly string[] EtapasValidas =
         {
@@ -76,6 +77,16 @@ namespace LuxmanErp.Services
                     monto_anticipo            NUMERIC(14,2) NOT NULL DEFAULT 0,
                     rfc_facturacion           VARCHAR(20),
                     razon_social_facturacion  VARCHAR(200),
+                    uso_cfdi                  VARCHAR(120),
+                    regimen_fiscal            VARCHAR(140),
+                    metodo_pago               VARCHAR(80),
+                    forma_pago                VARCHAR(100),
+                    subtotal_factura          NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    iva_factura               NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    total_factura             NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    estado_facturacion        VARCHAR(30) NOT NULL DEFAULT 'PENDIENTE',
+                    folio_factura             VARCHAR(30),
+                    fecha_facturacion         TIMESTAMP,
                     estado_venta              VARCHAR(20) NOT NULL DEFAULT 'COTIZADO',
                     etapa_fabricacion         VARCHAR(80) NOT NULL DEFAULT 'Cotizado',
                     fecha_compromiso_entrega  DATE,
@@ -95,6 +106,16 @@ namespace LuxmanErp.Services
                 ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS monto_anticipo NUMERIC(14,2) DEFAULT 0;
                 ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS rfc_facturacion VARCHAR(20);
                 ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS razon_social_facturacion VARCHAR(200);
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS uso_cfdi VARCHAR(120);
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS regimen_fiscal VARCHAR(140);
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(80);
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS forma_pago VARCHAR(100);
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS subtotal_factura NUMERIC(14,2) DEFAULT 0;
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS iva_factura NUMERIC(14,2) DEFAULT 0;
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS total_factura NUMERIC(14,2) DEFAULT 0;
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS estado_facturacion VARCHAR(30) DEFAULT 'PENDIENTE';
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS folio_factura VARCHAR(30);
+                ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS fecha_facturacion TIMESTAMP;
                 ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS estado_venta VARCHAR(20) DEFAULT 'COTIZADO';
                 ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS etapa_fabricacion VARCHAR(80) DEFAULT 'Cotizado';
                 ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS fecha_compromiso_entrega DATE;
@@ -103,7 +124,11 @@ namespace LuxmanErp.Services
                 ALTER TABLE proyectos_venta ADD COLUMN IF NOT EXISTS eliminado BOOLEAN DEFAULT FALSE;
 
                 UPDATE proyectos_venta SET numero_folio = id_proyecto WHERE numero_folio IS NULL OR numero_folio <= 0;
-                UPDATE proyectos_venta SET eliminado = FALSE WHERE eliminado IS NULL;", conexion);
+                UPDATE proyectos_venta SET eliminado = FALSE WHERE eliminado IS NULL;
+                UPDATE proyectos_venta SET estado_facturacion = 'PENDIENTE' WHERE estado_facturacion IS NULL OR TRIM(estado_facturacion) = '';
+                UPDATE proyectos_venta SET subtotal_factura = 0 WHERE subtotal_factura IS NULL;
+                UPDATE proyectos_venta SET iva_factura = 0 WHERE iva_factura IS NULL;
+                UPDATE proyectos_venta SET total_factura = 0 WHERE total_factura IS NULL;", conexion);
             comando.ExecuteNonQuery();
         }
 
@@ -123,6 +148,35 @@ namespace LuxmanErp.Services
             return CalculoTanqueService.CalcularMenorEnteroDisponible(ocupados);
         }
 
+        // obtiene el menor folio de factura disponible (FAC-YYYY-001) para el año indicado
+        private static string ObtenerSiguienteFolioFactura(NpgsqlConnection conexion, int anio, NpgsqlTransaction? transaccion = null)
+        {
+            string prefijo = $"FAC-{anio}-";
+            var ocupados = new List<int>();
+
+            using var cmd = new NpgsqlCommand(@"
+                SELECT folio_factura
+                FROM proyectos_venta
+                WHERE NOT COALESCE(eliminado, FALSE)
+                  AND folio_factura IS NOT NULL
+                  AND folio_factura LIKE @patron;", conexion, transaccion);
+            cmd.Parameters.AddWithValue("patron", prefijo + "%");
+
+            using var lector = cmd.ExecuteReader();
+            while (lector.Read())
+            {
+                string folio = lector.GetString(0);
+                string sufijo = folio.Substring(prefijo.Length);
+                if (int.TryParse(sufijo, NumberStyles.Integer, CultureInfo.InvariantCulture, out int num) && num > 0)
+                {
+                    ocupados.Add(num);
+                }
+            }
+
+            int menor = CalculoTanqueService.CalcularMenorEnteroDisponible(ocupados);
+            return $"{prefijo}{menor:D3}";
+        }
+
         private const string SelectBase = @"
             SELECT pv.id_proyecto, pv.numero_folio, pv.id_cliente, cl.nombre_cliente,
                    pv.id_solicitud, pv.id_calculo,
@@ -131,7 +185,10 @@ namespace LuxmanErp.Services
                    pv.rfc_facturacion, pv.razon_social_facturacion,
                    pv.estado_venta, pv.etapa_fabricacion,
                    pv.fecha_compromiso_entrega, pv.fecha_creacion, pv.fecha_cierre, pv.eliminado,
-                   (SELECT ct.numero_folio FROM calculos_tanques ct WHERE ct.id_calculo = pv.id_calculo LIMIT 1) AS folio_calculo
+                   (SELECT ct.numero_folio FROM calculos_tanques ct WHERE ct.id_calculo = pv.id_calculo LIMIT 1) AS folio_calculo,
+                   pv.uso_cfdi, pv.regimen_fiscal, pv.metodo_pago, pv.forma_pago,
+                   pv.subtotal_factura, pv.iva_factura, pv.total_factura,
+                   pv.estado_facturacion, pv.folio_factura, pv.fecha_facturacion
             FROM proyectos_venta pv
             LEFT JOIN clientes cl ON cl.id_cliente = pv.id_cliente";
 
@@ -143,7 +200,6 @@ namespace LuxmanErp.Services
             conexion.Open();
             AsegurarTabla(conexion);
 
-            // aseguramos que calculos_tanques exista para la subconsulta de folio_calculo
             using (var asegurarCalc = new NpgsqlCommand(@"
                 CREATE TABLE IF NOT EXISTS calculos_tanques (
                     id_calculo SERIAL PRIMARY KEY,
@@ -223,12 +279,12 @@ namespace LuxmanErp.Services
                     INSERT INTO proyectos_venta (
                         numero_folio, id_cliente, id_solicitud, id_calculo,
                         nombre_proyecto, sector, monto_cotizado,
-                        estado_venta, etapa_fabricacion, eliminado
+                        estado_facturacion, estado_venta, etapa_fabricacion, eliminado
                     )
                     VALUES (
                         @numero_folio, @id_cliente, @id_solicitud, @id_calculo,
                         @nombre_proyecto, @sector, @monto_cotizado,
-                        'COTIZADO', 'Cotizado', FALSE
+                        'PENDIENTE', 'COTIZADO', 'Cotizado', FALSE
                     )
                     RETURNING id_proyecto;", conexion, transaccion))
                 {
@@ -250,7 +306,6 @@ namespace LuxmanErp.Services
                     idCreado = (int)insertar.ExecuteScalar()!;
                 }
 
-                // si proviene de una solicitud web, queda marcada automaticamente como atendida
                 if (idSolicitud != null)
                 {
                     using var marcarSol = new NpgsqlCommand(
@@ -292,7 +347,6 @@ namespace LuxmanErp.Services
                 return ObtenerPorId(id_proyecto);
             }
 
-            // flujo APROBADO
             decimal porcentaje = Math.Round(datos.PorcentajeAnticipo ?? 50m, 2);
             if (porcentaje < 0 || porcentaje > 100)
                 throw new ArgumentException("El porcentaje de anticipo debe estar entre 0 y 100.");
@@ -309,6 +363,9 @@ namespace LuxmanErp.Services
                 throw new ArgumentException("El RFC de facturación no puede exceder 20 caracteres.");
             if (razonSocial != null && razonSocial.Length > 200)
                 throw new ArgumentException("La razón social no puede exceder 200 caracteres.");
+
+            string? usoCfdi = string.IsNullOrWhiteSpace(datos.UsoCfdi) ? actual.UsoCfdi : datos.UsoCfdi.Trim();
+            string? regimenFiscal = string.IsNullOrWhiteSpace(datos.RegimenFiscal) ? actual.RegimenFiscal : datos.RegimenFiscal.Trim();
 
             DateTime? fechaCompromiso = null;
             if (!string.IsNullOrWhiteSpace(datos.FechaCompromisoEntrega))
@@ -338,6 +395,9 @@ namespace LuxmanErp.Services
                     monto_anticipo = @monto_anticipo,
                     rfc_facturacion = @rfc_facturacion,
                     razon_social_facturacion = @razon_social_facturacion,
+                    uso_cfdi = COALESCE(@uso_cfdi, uso_cfdi),
+                    regimen_fiscal = COALESCE(@regimen_fiscal, regimen_fiscal),
+                    estado_facturacion = COALESCE(NULLIF(estado_facturacion, ''), 'PENDIENTE'),
                     fecha_compromiso_entrega = @fecha_compromiso_entrega,
                     fecha_cierre = COALESCE(fecha_cierre, NOW())
                 WHERE id_proyecto = @id_proyecto;", conexion))
@@ -348,6 +408,8 @@ namespace LuxmanErp.Services
                 cmdAprobar.Parameters.AddWithValue("monto_anticipo", montoAnticipo);
                 cmdAprobar.Parameters.AddWithValue("rfc_facturacion", (object?)rfc ?? DBNull.Value);
                 cmdAprobar.Parameters.AddWithValue("razon_social_facturacion", (object?)razonSocial ?? DBNull.Value);
+                cmdAprobar.Parameters.AddWithValue("uso_cfdi", (object?)usoCfdi ?? DBNull.Value);
+                cmdAprobar.Parameters.AddWithValue("regimen_fiscal", (object?)regimenFiscal ?? DBNull.Value);
 
                 var pFecha = cmdAprobar.Parameters.AddWithValue(
                     "fecha_compromiso_entrega",
@@ -357,7 +419,6 @@ namespace LuxmanErp.Services
                 cmdAprobar.ExecuteNonQuery();
             }
 
-            // si el cliente vinculado no tenia RFC registrado, lo enriquecemos con el RFC de facturacion
             if (actual.IdCliente != null && !string.IsNullOrWhiteSpace(rfc))
             {
                 using var actRfc = new NpgsqlCommand(@"
@@ -367,6 +428,133 @@ namespace LuxmanErp.Services
                 actRfc.Parameters.AddWithValue("rfc", rfc);
                 actRfc.Parameters.AddWithValue("id_cliente", actual.IdCliente.Value);
                 actRfc.ExecuteNonQuery();
+            }
+
+            return ObtenerPorId(id_proyecto);
+        }
+
+        // registra los datos fiscales, calcula Subtotal + IVA (16%) + Total y asigna folio_factura (FAC-YYYY-001)
+        public ProyectoVenta? Facturar(int id_proyecto, FacturarProyectoDTO datos)
+        {
+            var actual = ObtenerPorId(id_proyecto);
+            if (actual == null) return null;
+
+            if (!string.Equals(actual.EstadoVenta, "APROBADO", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Únicamente se pueden facturar proyectos con estado APROBADO.");
+
+            string? rfc = string.IsNullOrWhiteSpace(datos.RfcFacturacion)
+                ? actual.RfcFacturacion
+                : datos.RfcFacturacion.Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(rfc))
+                throw new ArgumentException("El RFC de facturación es obligatorio para emitir la factura.");
+            if (rfc.Length > 20)
+                throw new ArgumentException("El RFC de facturación no puede exceder 20 caracteres.");
+
+            string? razonSocial = string.IsNullOrWhiteSpace(datos.RazonSocialFacturacion)
+                ? (actual.RazonSocialFacturacion ?? actual.NombreCliente)
+                : datos.RazonSocialFacturacion.Trim();
+            if (string.IsNullOrWhiteSpace(razonSocial))
+                throw new ArgumentException("La razón social del receptor es obligatoria para emitir la factura.");
+            if (razonSocial.Length > 200)
+                throw new ArgumentException("La razón social no puede exceder 200 caracteres.");
+
+            string usoCfdi = string.IsNullOrWhiteSpace(datos.UsoCfdi)
+                ? "I08 - Otra maquinaria y equipo"
+                : datos.UsoCfdi.Trim();
+            if (usoCfdi.Length > 120) usoCfdi = usoCfdi.Substring(0, 120);
+
+            string regimenFiscal = string.IsNullOrWhiteSpace(datos.RegimenFiscal)
+                ? "601 - General de Ley Personas Morales"
+                : datos.RegimenFiscal.Trim();
+            if (regimenFiscal.Length > 140) regimenFiscal = regimenFiscal.Substring(0, 140);
+
+            string metodoEntrada = string.IsNullOrWhiteSpace(datos.MetodoPago)
+                ? "PUE"
+                : datos.MetodoPago.Trim().ToUpperInvariant();
+            string metodoPago = metodoEntrada.StartsWith("PPD", StringComparison.OrdinalIgnoreCase) ? "PPD" : "PUE";
+
+            string formaPago = string.IsNullOrWhiteSpace(datos.FormaPago)
+                ? "03 - Transferencia electrónica"
+                : datos.FormaPago.Trim();
+            if (formaPago.Length > 100) formaPago = formaPago.Substring(0, 100);
+
+            string estadoFacturacion = string.IsNullOrWhiteSpace(datos.EstadoFacturacion)
+                ? "FACTURADO_TOTAL"
+                : datos.EstadoFacturacion.Trim().ToUpperInvariant();
+
+            if (estadoFacturacion != "ANTICIPO_FACTURADO" && estadoFacturacion != "FACTURADO_TOTAL")
+                throw new ArgumentException("El estado_facturacion debe ser ANTICIPO_FACTURADO o FACTURADO_TOTAL.");
+
+            decimal subtotal;
+            if (estadoFacturacion == "ANTICIPO_FACTURADO")
+            {
+                if (actual.MontoAnticipo <= 0m)
+                    throw new ArgumentException("Este proyecto no tiene un monto de anticipo mayor a $0. Factura el 100% del proyecto o registra el anticipo.");
+                subtotal = Math.Round(actual.MontoAnticipo, 2);
+            }
+            else
+            {
+                subtotal = Math.Round(actual.MontoCotizado, 2);
+            }
+
+            decimal iva = Math.Round(subtotal * TasaIva, 2);
+            decimal total = Math.Round(subtotal + iva, 2);
+            DateTime ahora = MemebretePdfService.AhoraMexico();
+
+            using var conexion = new NpgsqlConnection(cadenaConexion);
+            conexion.Open();
+            AsegurarTabla(conexion);
+
+            using (var transaccion = conexion.BeginTransaction())
+            {
+                string folioFactura = !string.IsNullOrWhiteSpace(actual.FolioFactura)
+                    ? actual.FolioFactura.Trim()
+                    : ObtenerSiguienteFolioFactura(conexion, ahora.Year, transaccion);
+
+                using (var cmdFact = new NpgsqlCommand(@"
+                    UPDATE proyectos_venta
+                    SET rfc_facturacion = @rfc,
+                        razon_social_facturacion = @razon_social,
+                        uso_cfdi = @uso_cfdi,
+                        regimen_fiscal = @regimen_fiscal,
+                        metodo_pago = @metodo_pago,
+                        forma_pago = @forma_pago,
+                        subtotal_factura = @subtotal,
+                        iva_factura = @iva,
+                        total_factura = @total,
+                        estado_facturacion = @estado_facturacion,
+                        folio_factura = @folio_factura,
+                        fecha_facturacion = @fecha_facturacion
+                    WHERE id_proyecto = @id_proyecto;", conexion, transaccion))
+                {
+                    cmdFact.Parameters.AddWithValue("id_proyecto", id_proyecto);
+                    cmdFact.Parameters.AddWithValue("rfc", rfc);
+                    cmdFact.Parameters.AddWithValue("razon_social", razonSocial);
+                    cmdFact.Parameters.AddWithValue("uso_cfdi", usoCfdi);
+                    cmdFact.Parameters.AddWithValue("regimen_fiscal", regimenFiscal);
+                    cmdFact.Parameters.AddWithValue("metodo_pago", metodoPago);
+                    cmdFact.Parameters.AddWithValue("forma_pago", formaPago);
+                    cmdFact.Parameters.AddWithValue("subtotal", subtotal);
+                    cmdFact.Parameters.AddWithValue("iva", iva);
+                    cmdFact.Parameters.AddWithValue("total", total);
+                    cmdFact.Parameters.AddWithValue("estado_facturacion", estadoFacturacion);
+                    cmdFact.Parameters.AddWithValue("folio_factura", folioFactura);
+                    cmdFact.Parameters.AddWithValue("fecha_facturacion", ahora);
+                    cmdFact.ExecuteNonQuery();
+                }
+
+                if (actual.IdCliente != null && !string.IsNullOrWhiteSpace(rfc))
+                {
+                    using var actRfc = new NpgsqlCommand(@"
+                        UPDATE clientes
+                        SET rfc_cliente = COALESCE(NULLIF(rfc_cliente, ''), @rfc)
+                        WHERE id_cliente = @id_cliente;", conexion, transaccion);
+                    actRfc.Parameters.AddWithValue("rfc", rfc);
+                    actRfc.Parameters.AddWithValue("id_cliente", actual.IdCliente.Value);
+                    actRfc.ExecuteNonQuery();
+                }
+
+                transaccion.Commit();
             }
 
             return ObtenerPorId(id_proyecto);
@@ -565,7 +753,17 @@ namespace LuxmanErp.Services
                 FechaCreacion = fechaCreacion,
                 FechaCierre = lector.IsDBNull(17) ? null : lector.GetDateTime(17),
                 Eliminado = !lector.IsDBNull(18) && lector.GetBoolean(18),
-                FolioCalculo = lector.IsDBNull(19) ? null : lector.GetInt32(19)
+                FolioCalculo = lector.IsDBNull(19) ? null : lector.GetInt32(19),
+                UsoCfdi = lector.IsDBNull(20) ? null : lector.GetString(20),
+                RegimenFiscal = lector.IsDBNull(21) ? null : lector.GetString(21),
+                MetodoPago = lector.IsDBNull(22) ? null : lector.GetString(22),
+                FormaPago = lector.IsDBNull(23) ? null : lector.GetString(23),
+                SubtotalFactura = lector.IsDBNull(24) ? 0m : lector.GetDecimal(24),
+                IvaFactura = lector.IsDBNull(25) ? 0m : lector.GetDecimal(25),
+                TotalFactura = lector.IsDBNull(26) ? 0m : lector.GetDecimal(26),
+                EstadoFacturacion = lector.IsDBNull(27) ? "PENDIENTE" : lector.GetString(27),
+                FolioFactura = lector.IsDBNull(28) ? null : lector.GetString(28),
+                FechaFacturacion = lector.IsDBNull(29) ? null : lector.GetDateTime(29)
             };
         }
     }

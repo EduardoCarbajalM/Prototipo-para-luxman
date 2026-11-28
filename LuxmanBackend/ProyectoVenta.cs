@@ -51,6 +51,36 @@ namespace LuxmanErp.Models
         [JsonPropertyName("razon_social_facturacion")]
         public string? RazonSocialFacturacion { get; set; }
 
+        [JsonPropertyName("uso_cfdi")]
+        public string? UsoCfdi { get; set; }
+
+        [JsonPropertyName("regimen_fiscal")]
+        public string? RegimenFiscal { get; set; }
+
+        [JsonPropertyName("metodo_pago")]
+        public string? MetodoPago { get; set; }
+
+        [JsonPropertyName("forma_pago")]
+        public string? FormaPago { get; set; }
+
+        [JsonPropertyName("subtotal_factura")]
+        public decimal SubtotalFactura { get; set; }
+
+        [JsonPropertyName("iva_factura")]
+        public decimal IvaFactura { get; set; }
+
+        [JsonPropertyName("total_factura")]
+        public decimal TotalFactura { get; set; }
+
+        [JsonPropertyName("estado_facturacion")]
+        public string EstadoFacturacion { get; set; } = "PENDIENTE";
+
+        [JsonPropertyName("folio_factura")]
+        public string? FolioFactura { get; set; }
+
+        [JsonPropertyName("fecha_facturacion")]
+        public DateTime? FechaFacturacion { get; set; }
+
         [JsonPropertyName("estado_venta")]
         public string EstadoVenta { get; set; } = "COTIZADO";
 
@@ -107,8 +137,39 @@ namespace LuxmanErp.Models
         [JsonPropertyName("razon_social_facturacion")]
         public string? RazonSocialFacturacion { get; set; }
 
+        [JsonPropertyName("uso_cfdi")]
+        public string? UsoCfdi { get; set; }
+
+        [JsonPropertyName("regimen_fiscal")]
+        public string? RegimenFiscal { get; set; }
+
         [JsonPropertyName("fecha_compromiso_entrega")]
         public string? FechaCompromisoEntrega { get; set; }
+    }
+
+    // datos para registrar o actualizar la facturacion de un proyecto aprobado (anticipo o 100%)
+    public class FacturarProyectoDTO
+    {
+        [JsonPropertyName("rfc_facturacion")]
+        public string? RfcFacturacion { get; set; }
+
+        [JsonPropertyName("razon_social_facturacion")]
+        public string? RazonSocialFacturacion { get; set; }
+
+        [JsonPropertyName("uso_cfdi")]
+        public string? UsoCfdi { get; set; }
+
+        [JsonPropertyName("regimen_fiscal")]
+        public string? RegimenFiscal { get; set; }
+
+        [JsonPropertyName("metodo_pago")]
+        public string? MetodoPago { get; set; }
+
+        [JsonPropertyName("forma_pago")]
+        public string? FormaPago { get; set; }
+
+        [JsonPropertyName("estado_facturacion")]
+        public string? EstadoFacturacion { get; set; }
     }
 
     // datos para actualizar la etapa de fabricacion en taller

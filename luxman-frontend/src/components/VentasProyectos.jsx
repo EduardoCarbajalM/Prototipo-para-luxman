@@ -7,6 +7,8 @@ import {
   Trash2,
   RotateCcw,
   FileCheck2,
+  FileText,
+  FileDown,
   Layers,
   Calendar,
   Calculator,
@@ -25,6 +27,37 @@ export const SECTORES_LUXMAN = [
   "Química",
   "Tratamiento de Aguas",
   "Otro",
+];
+
+// Catálogos fiscales estándar SAT México (CFDI 4.0)
+const CATALOGO_USO_CFDI = [
+  "I08 - Otra maquinaria y equipo",
+  "G03 - Gastos en general",
+  "G01 - Adquisición de mercancías",
+  "I01 - Construcciones",
+  "S01 - Sin efectos fiscales",
+];
+
+const CATALOGO_REGIMEN_FISCAL = [
+  "601 - General de Ley Personas Morales",
+  "612 - Personas Físicas con Actividades Empresariales y Profesionales",
+  "626 - Régimen Simplificado de Confianza",
+  "603 - Personas Morales con Fines no Lucrativos",
+  "616 - Sin obligaciones fiscales",
+];
+
+const CATALOGO_METODO_PAGO = [
+  { valor: "PUE", texto: "PUE - Pago en una sola exhibición" },
+  { valor: "PPD", texto: "PPD - Pago en parcialidades o diferido" },
+];
+
+const CATALOGO_FORMA_PAGO = [
+  "03 - Transferencia electrónica",
+  "02 - Cheque nominativo",
+  "04 - Tarjeta de crédito",
+  "28 - Tarjeta de débito",
+  "01 - Efectivo",
+  "99 - Por definir",
 ];
 
 // Los 5 pasos productivos para la barra de progreso visual una vez aprobada la venta
@@ -51,7 +84,18 @@ const formatearFechaCorta = (fechaTexto) => {
 
 function obtenerIndicePaso(etapa_fabricacion) {
   const idx = PASOS_FABRICACION.indexOf(etapa_fabricacion);
-  return idx >= 0 ? idx + 1 : 0; // 0 cuando está en 'Cotizado'
+  return idx >= 0 ? idx + 1 : 0;
+}
+
+function obtenerMetaEstadoFacturacion(estado_facturacion) {
+  const estado = (estado_facturacion || "PENDIENTE").toUpperCase();
+  if (estado === "FACTURADO_TOTAL") {
+    return { clase: "text-bg-success", etiqueta: "Facturado 100%" };
+  }
+  if (estado === "ANTICIPO_FACTURADO") {
+    return { clase: "text-bg-info text-dark", etiqueta: "Anticipo Facturado" };
+  }
+  return { clase: "text-bg-warning text-dark", etiqueta: "Facturación Pendiente" };
 }
 
 function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
@@ -88,6 +132,21 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
     rfc_facturacion: "",
     razon_social_facturacion: "",
     fecha_compromiso_entrega: "",
+  });
+
+  // Modal de Facturación Fiscal (Anticipo o 100% del proyecto)
+  const [proyectoEnFacturacion, setProyectoEnFacturacion] = useState(null);
+  const [procesandoFactura, setProcesandoFactura] = useState(false);
+  const [idDescargandoFactura, setIdDescargandoFactura] = useState(null);
+  const [errorModalFactura, setErrorModalFactura] = useState("");
+  const [formFactura, setFormFactura] = useState({
+    rfc_facturacion: "",
+    razon_social_facturacion: "",
+    regimen_fiscal: CATALOGO_REGIMEN_FISCAL[0],
+    uso_cfdi: CATALOGO_USO_CFDI[0],
+    metodo_pago: "PUE",
+    forma_pago: CATALOGO_FORMA_PAGO[0],
+    estado_facturacion: "FACTURADO_TOTAL",
   });
 
   const cargarTodo = useCallback(async () => {
@@ -146,7 +205,9 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
       sector: borradorInicial.sector || "Otro",
       monto_cotizado: "",
     });
-    setAviso("Solicitud vinculada. Revisa el nombre del proyecto, vincula un cálculo si lo deseas y asigna el monto cotizado.");
+    setAviso(
+      "Solicitud vinculada. Revisa el nombre del proyecto, vincula un cálculo si lo deseas y asigna el monto cotizado."
+    );
     if (alConsumirBorrador) alConsumirBorrador();
   }, [borradorInicial, alConsumirBorrador]);
 
@@ -302,6 +363,127 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
     }
   }
 
+  function abrirModalFacturacion(proyecto) {
+    const cl = clientes.find((c) => c.id_cliente === proyecto.id_cliente);
+    const estadoFactActual = (proyecto.estado_facturacion || "PENDIENTE").toUpperCase();
+
+    let alcanceSugerido = "FACTURADO_TOTAL";
+    if (estadoFactActual === "ANTICIPO_FACTURADO") {
+      alcanceSugerido = "ANTICIPO_FACTURADO";
+    } else if (
+      estadoFactActual === "PENDIENTE" &&
+      Number(proyecto.monto_anticipo || 0) > 0 &&
+      proyecto.etapa_fabricacion !== "Entregado" &&
+      proyecto.etapa_fabricacion !== "Listo para Entrega"
+    ) {
+      alcanceSugerido = "ANTICIPO_FACTURADO";
+    }
+
+    setProyectoEnFacturacion(proyecto);
+    setErrorModalFactura("");
+    setFormFactura({
+      rfc_facturacion: proyecto.rfc_facturacion || cl?.rfc_cliente || "",
+      razon_social_facturacion:
+        proyecto.razon_social_facturacion || proyecto.nombre_cliente || cl?.nombre_cliente || "",
+      regimen_fiscal: proyecto.regimen_fiscal || CATALOGO_REGIMEN_FISCAL[0],
+      uso_cfdi: proyecto.uso_cfdi || CATALOGO_USO_CFDI[0],
+      metodo_pago:
+        proyecto.metodo_pago || (alcanceSugerido === "ANTICIPO_FACTURADO" ? "PPD" : "PUE"),
+      forma_pago: proyecto.forma_pago || CATALOGO_FORMA_PAGO[0],
+      estado_facturacion: alcanceSugerido,
+    });
+  }
+
+  async function ejecutarFacturacion(evento) {
+    evento.preventDefault();
+    if (!proyectoEnFacturacion) return;
+
+    if (!formFactura.rfc_facturacion.trim()) {
+      setErrorModalFactura("Ingresa el RFC del receptor para emitir la factura.");
+      return;
+    }
+
+    if (!formFactura.razon_social_facturacion.trim()) {
+      setErrorModalFactura("Ingresa la razón social del receptor.");
+      return;
+    }
+
+    setProcesandoFactura(true);
+    setErrorModalFactura("");
+    try {
+      const respuesta = await fetch(
+        `${URL_PROYECTOS}/${proyectoEnFacturacion.id_proyecto}/facturar`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rfc_facturacion: formFactura.rfc_facturacion.trim().toUpperCase(),
+            razon_social_facturacion: formFactura.razon_social_facturacion.trim(),
+            regimen_fiscal: formFactura.regimen_fiscal,
+            uso_cfdi: formFactura.uso_cfdi,
+            metodo_pago: formFactura.metodo_pago,
+            forma_pago: formFactura.forma_pago,
+            estado_facturacion: formFactura.estado_facturacion,
+          }),
+        }
+      );
+
+      if (!respuesta.ok) {
+        throw new Error((await respuesta.text()) || "No se pudo registrar la factura.");
+      }
+
+      const actualizado = await respuesta.json();
+      setProyectos((prev) =>
+        prev.map((p) => (p.id_proyecto === actualizado.id_proyecto ? actualizado : p))
+      );
+      setProyectoEnFacturacion(actualizado);
+      setAviso(
+        `Factura ${actualizado.folio_factura} registrada exitosamente para ${actualizado.codigo_folio}.`
+      );
+    } catch (err) {
+      setErrorModalFactura(err.message || "Error al generar la factura.");
+    } finally {
+      setProcesandoFactura(false);
+    }
+  }
+
+  // Abre el PDF de la factura en una pestaña nueva usando Blob para conservar intacta la sesión móvil en /directivo
+  async function descargarFacturaPdf(proyecto) {
+    const pestanaNueva = window.open("", "_blank");
+    setIdDescargandoFactura(proyecto.id_proyecto);
+    setError("");
+    try {
+      const respuesta = await fetch(`${URL_PROYECTOS}/${proyecto.id_proyecto}/factura-pdf`);
+      if (!respuesta.ok) {
+        throw new Error((await respuesta.text()) || "No se pudo generar el PDF de la factura.");
+      }
+
+      const blob = await respuesta.blob();
+      const urlBlob = URL.createObjectURL(blob);
+      const nombreArchivo = `${proyecto.folio_factura || `Factura_${proyecto.codigo_folio}`}.pdf`;
+
+      if (pestanaNueva) {
+        pestanaNueva.location.href = urlBlob;
+      } else {
+        const enlace = document.createElement("a");
+        enlace.href = urlBlob;
+        enlace.target = "_blank";
+        enlace.rel = "noopener noreferrer";
+        enlace.download = nombreArchivo;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+      }
+
+      setTimeout(() => URL.revokeObjectURL(urlBlob), 60000);
+    } catch (err) {
+      if (pestanaNueva) pestanaNueva.close();
+      setError(err.message || "No se pudo descargar el PDF de la factura.");
+    } finally {
+      setIdDescargandoFactura(null);
+    }
+  }
+
   async function rechazarProyecto(proyecto) {
     if (!window.confirm(`¿Marcar el proyecto ${proyecto.codigo_folio} como RECHAZADO?`)) return;
     try {
@@ -396,6 +578,20 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
     return Math.round(Number(proyectoEnCierre.monto_cotizado || 0) * (pct / 100) * 100) / 100;
   }, [proyectoEnCierre, formCierre.porcentaje_anticipo]);
 
+  const desgloseFacturaModal = useMemo(() => {
+    if (!proyectoEnFacturacion) {
+      return { subtotal: 0, iva: 0, total: 0 };
+    }
+    const base =
+      formFactura.estado_facturacion === "ANTICIPO_FACTURADO"
+        ? Number(proyectoEnFacturacion.monto_anticipo || 0)
+        : Number(proyectoEnFacturacion.monto_cotizado || 0);
+    const subtotal = Math.round(base * 100) / 100;
+    const iva = Math.round(subtotal * 0.16 * 100) / 100;
+    const total = Math.round((subtotal + iva) * 100) / 100;
+    return { subtotal, iva, total };
+  }, [proyectoEnFacturacion, formFactura.estado_facturacion]);
+
   return (
     <div className="p-3 p-md-4">
       {/* ===== ENCABEZADO ===== */}
@@ -406,7 +602,7 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
             <span>Ventas y Proyectos</span>
           </h3>
           <p className="text-secondary small mb-0">
-            Gestión de cotizaciones comerciales (LUX-2026-001), cierre de venta con anticipo y control de fabricación en 5 etapas.
+            Gestión de cotizaciones comerciales, cierre de venta con anticipo, facturación con IVA (16%) y seguimiento en 5 etapas.
           </p>
         </div>
 
@@ -540,7 +736,7 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
 
               <div className="col-md-3">
                 <label className="form-label fw-semibold small mb-1">
-                  Monto cotizado (MXN) <span className="text-danger">*</span>
+                  Monto cotizado sin IVA (MXN) <span className="text-danger">*</span>
                 </label>
                 <div className="input-group">
                   <span className="input-group-text">$</span>
@@ -656,6 +852,12 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
                 ? "danger"
                 : "warning";
 
+            const metaFactura = obtenerMetaEstadoFacturacion(p.estado_facturacion);
+            const yaFacturado =
+              p.estado_venta === "APROBADO" &&
+              p.estado_facturacion &&
+              p.estado_facturacion.toUpperCase() !== "PENDIENTE";
+
             return (
               <div key={p.id_proyecto} className="card shadow-sm border-0">
                 <div className="card-body p-3 p-md-4">
@@ -669,6 +871,16 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
                         <span className="badge text-bg-light border text-secondary">
                           {p.sector}
                         </span>
+                        {p.estado_venta === "APROBADO" && (
+                          <span className={`badge ${metaFactura.clase}`}>
+                            {metaFactura.etiqueta}
+                          </span>
+                        )}
+                        {yaFacturado && p.folio_factura && (
+                          <span className="badge text-bg-primary font-monospace">
+                            {p.folio_factura}
+                          </span>
+                        )}
                         {p.folio_calculo && (
                           <span className="badge text-bg-info-subtle text-primary border">
                             CALC-{String(p.folio_calculo).padStart(5, "0")}
@@ -696,7 +908,7 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
                     </div>
 
                     <div className="text-md-end">
-                      <div className="small text-secondary">Monto Cotizado</div>
+                      <div className="small text-secondary">Monto Cotizado (sin IVA)</div>
                       <div className="fs-4 fw-bold text-dark">
                         {formatearMoneda(p.monto_cotizado)}
                       </div>
@@ -705,19 +917,35 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
                           Anticipo ({p.porcentaje_anticipo}%): {formatearMoneda(p.monto_anticipo)}
                         </div>
                       )}
+                      {yaFacturado && p.total_factura > 0 && (
+                        <div className="small text-primary fw-semibold">
+                          Total c/IVA: {formatearMoneda(p.total_factura)}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Datos fiscales si la venta fue aprobada */}
                   {p.estado_venta === "APROBADO" &&
-                    (p.razon_social_facturacion || p.rfc_facturacion) && (
+                    (p.razon_social_facturacion || p.rfc_facturacion || yaFacturado) && (
                       <div className="mt-2 pt-2 border-top small text-secondary d-flex flex-wrap gap-3">
                         <span>
-                          <strong>Facturación:</strong> {p.razon_social_facturacion || "—"}
+                          <strong>Receptor:</strong>{" "}
+                          {p.razon_social_facturacion || p.nombre_cliente || "—"}
                         </span>
                         {p.rfc_facturacion && (
                           <span>
                             <strong>RFC:</strong> {p.rfc_facturacion}
+                          </span>
+                        )}
+                        {yaFacturado && p.uso_cfdi && (
+                          <span>
+                            <strong>Uso CFDI:</strong> {p.uso_cfdi}
+                          </span>
+                        )}
+                        {yaFacturado && p.metodo_pago && (
+                          <span>
+                            <strong>Pago:</strong> {p.metodo_pago} • {p.forma_pago || "03"}
                           </span>
                         )}
                       </div>
@@ -813,13 +1041,42 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
                         )}
 
                         {p.estado_venta === "APROBADO" && (
-                          <button
-                            type="button"
-                            onClick={() => abrirModalCerrarVenta(p)}
-                            className="btn btn-outline-secondary btn-sm"
-                          >
-                            Editar datos de cierre / entrega
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => abrirModalFacturacion(p)}
+                              className={`btn btn-sm fw-semibold d-inline-flex align-items-center gap-1 ${
+                                yaFacturado ? "btn-outline-primary" : "btn-primary"
+                              }`}
+                            >
+                              <FileText size={14} />
+                              <span>{yaFacturado ? "Ver Factura" : "Facturar"}</span>
+                            </button>
+
+                            {yaFacturado && (
+                              <button
+                                type="button"
+                                disabled={idDescargandoFactura === p.id_proyecto}
+                                onClick={() => descargarFacturaPdf(p)}
+                                className="btn btn-success btn-sm fw-semibold d-inline-flex align-items-center gap-1"
+                              >
+                                {idDescargandoFactura === p.id_proyecto ? (
+                                  <Loader2 size={14} className="mb-spinner" />
+                                ) : (
+                                  <FileDown size={14} />
+                                )}
+                                <span>Descargar Factura PDF</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => abrirModalCerrarVenta(p)}
+                              className="btn btn-outline-secondary btn-sm"
+                            >
+                              Editar datos de cierre / entrega
+                            </button>
+                          </>
                         )}
 
                         {p.estado_venta === "RECHAZADO" && (
@@ -896,7 +1153,9 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
 
                 <div className="modal-body p-4">
                   <div className="d-flex justify-content-between align-items-center p-2 px-3 mb-3 rounded bg-light border">
-                    <span className="small text-secondary fw-semibold">Monto Cotizado:</span>
+                    <span className="small text-secondary fw-semibold">
+                      Monto Cotizado (sin IVA):
+                    </span>
                     <strong className="fs-5 text-dark">
                       {formatearMoneda(proyectoEnCierre.monto_cotizado)}
                     </strong>
@@ -1019,6 +1278,298 @@ function VentasProyectos({ borradorInicial, alConsumirBorrador }) {
                   >
                     {procesandoCierre ? "Aprobando..." : "Aprobar y Cerrar Venta"}
                   </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== MODAL DE FACTURACIÓN FISCAL (CFDI / COMPROBANTE LUXMAN) ===== */}
+      {proyectoEnFacturacion && (
+        <div
+          className="modal d-block"
+          tabIndex="-1"
+          role="dialog"
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.58)", overflowY: "auto" }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content border-0 shadow-lg">
+              <form onSubmit={ejecutarFacturacion}>
+                <div className="modal-header bg-primary text-white">
+                  <div>
+                    <h5 className="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+                      <FileText size={20} />
+                      <span>
+                        Facturación Comercial • {proyectoEnFacturacion.codigo_folio}
+                      </span>
+                      {proyectoEnFacturacion.folio_factura && (
+                        <span className="badge text-bg-light text-primary font-monospace">
+                          {proyectoEnFacturacion.folio_factura}
+                        </span>
+                      )}
+                    </h5>
+                    <small className="text-white-50">
+                      {proyectoEnFacturacion.nombre_proyecto}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-close btn-close-white"
+                    onClick={() => setProyectoEnFacturacion(null)}
+                  />
+                </div>
+
+                <div className="modal-body p-4">
+                  {/* Selector de alcance a facturar: Anticipo vs 100% */}
+                  <label className="form-label fw-bold small text-dark mb-2">
+                    1. Selecciona el alcance a facturar
+                  </label>
+                  <div className="row g-2 mb-3">
+                    <div className="col-md-6">
+                      <button
+                        type="button"
+                        disabled={Number(proyectoEnFacturacion.monto_anticipo || 0) <= 0}
+                        onClick={() =>
+                          setFormFactura((prev) => ({
+                            ...prev,
+                            estado_facturacion: "ANTICIPO_FACTURADO",
+                            metodo_pago: "PPD",
+                          }))
+                        }
+                        className={`btn w-100 text-start p-3 border ${
+                          formFactura.estado_facturacion === "ANTICIPO_FACTURADO"
+                            ? "btn-primary text-white shadow-sm"
+                            : "btn-outline-secondary text-dark bg-white"
+                        }`}
+                      >
+                        <div className="fw-bold">
+                          Facturar Anticipo ({proyectoEnFacturacion.porcentaje_anticipo}%)
+                        </div>
+                        <div
+                          className={`small ${
+                            formFactura.estado_facturacion === "ANTICIPO_FACTURADO"
+                              ? "text-white-50"
+                              : "text-secondary"
+                          }`}
+                        >
+                          Base sin IVA: {formatearMoneda(proyectoEnFacturacion.monto_anticipo)}
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="col-md-6">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormFactura((prev) => ({
+                            ...prev,
+                            estado_facturacion: "FACTURADO_TOTAL",
+                            metodo_pago: "PUE",
+                          }))
+                        }
+                        className={`btn w-100 text-start p-3 border ${
+                          formFactura.estado_facturacion === "FACTURADO_TOTAL"
+                            ? "btn-primary text-white shadow-sm"
+                            : "btn-outline-secondary text-dark bg-white"
+                        }`}
+                      >
+                        <div className="fw-bold">Facturar 100% del Proyecto</div>
+                        <div
+                          className={`small ${
+                            formFactura.estado_facturacion === "FACTURADO_TOTAL"
+                              ? "text-white-50"
+                              : "text-secondary"
+                          }`}
+                        >
+                          Base sin IVA: {formatearMoneda(proyectoEnFacturacion.monto_cotizado)}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Datos del Receptor y Catálogos Fiscales */}
+                  <label className="form-label fw-bold small text-dark mb-2">
+                    2. Datos fiscales del receptor y método de pago
+                  </label>
+                  <div className="row g-3">
+                    <div className="col-md-4">
+                      <label className="form-label fw-semibold small mb-1">
+                        RFC del receptor *
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={20}
+                        required
+                        className="form-control text-uppercase font-monospace"
+                        placeholder="Ej. LNO010101ABC"
+                        value={formFactura.rfc_facturacion}
+                        onChange={(e) =>
+                          setFormFactura((prev) => ({
+                            ...prev,
+                            rfc_facturacion: e.target.value.toUpperCase(),
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="col-md-8">
+                      <label className="form-label fw-semibold small mb-1">
+                        Razón social de facturación *
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={200}
+                        required
+                        className="form-control"
+                        value={formFactura.razon_social_facturacion}
+                        onChange={(e) =>
+                          setFormFactura((prev) => ({
+                            ...prev,
+                            razon_social_facturacion: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold small mb-1">Uso de CFDI</label>
+                      <select
+                        className="form-select"
+                        value={formFactura.uso_cfdi}
+                        onChange={(e) =>
+                          setFormFactura((prev) => ({ ...prev, uso_cfdi: e.target.value }))
+                        }
+                      >
+                        {CATALOGO_USO_CFDI.map((op) => (
+                          <option key={op} value={op}>
+                            {op}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold small mb-1">
+                        Régimen fiscal del receptor
+                      </label>
+                      <select
+                        className="form-select"
+                        value={formFactura.regimen_fiscal}
+                        onChange={(e) =>
+                          setFormFactura((prev) => ({ ...prev, regimen_fiscal: e.target.value }))
+                        }
+                      >
+                        {CATALOGO_REGIMEN_FISCAL.map((reg) => (
+                          <option key={reg} value={reg}>
+                            {reg}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold small mb-1">Método de pago</label>
+                      <select
+                        className="form-select"
+                        value={formFactura.metodo_pago}
+                        onChange={(e) =>
+                          setFormFactura((prev) => ({ ...prev, metodo_pago: e.target.value }))
+                        }
+                      >
+                        {CATALOGO_METODO_PAGO.map((m) => (
+                          <option key={m.valor} value={m.valor}>
+                            {m.texto}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold small mb-1">Forma de pago</label>
+                      <select
+                        className="form-select"
+                        value={formFactura.forma_pago}
+                        onChange={(e) =>
+                          setFormFactura((prev) => ({ ...prev, forma_pago: e.target.value }))
+                        }
+                      >
+                        {CATALOGO_FORMA_PAGO.map((fp) => (
+                          <option key={fp} value={fp}>
+                            {fp}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Resumen automático de Subtotal + IVA 16% + Total */}
+                  <div className="mt-4 p-3 rounded-3 bg-light border">
+                    <div className="row g-2 text-center text-md-end align-items-center">
+                      <div className="col-md-4">
+                        <div className="small text-secondary">Subtotal (sin IVA)</div>
+                        <div className="fs-6 fw-bold text-dark">
+                          {formatearMoneda(desgloseFacturaModal.subtotal)}
+                        </div>
+                      </div>
+                      <div className="col-md-4">
+                        <div className="small text-secondary">IVA Trasladado (16%)</div>
+                        <div className="fs-6 fw-bold text-dark">
+                          {formatearMoneda(desgloseFacturaModal.iva)}
+                        </div>
+                      </div>
+                      <div className="col-md-4">
+                        <div className="small text-primary fw-semibold">Total Factura (MXN)</div>
+                        <div className="fs-5 fw-bold text-primary">
+                          {formatearMoneda(desgloseFacturaModal.total)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {errorModalFactura && (
+                    <div className="alert alert-danger py-2 small mt-3 mb-0">
+                      {errorModalFactura}
+                    </div>
+                  )}
+                </div>
+
+                <div className="modal-footer bg-light d-flex flex-wrap justify-content-between gap-2">
+                  <div>
+                    {proyectoEnFacturacion.estado_facturacion &&
+                      proyectoEnFacturacion.estado_facturacion.toUpperCase() !== "PENDIENTE" && (
+                        <button
+                          type="button"
+                          disabled={idDescargandoFactura === proyectoEnFacturacion.id_proyecto}
+                          onClick={() => descargarFacturaPdf(proyectoEnFacturacion)}
+                          className="btn btn-success fw-semibold d-inline-flex align-items-center gap-1"
+                        >
+                          <FileDown size={16} />
+                          <span>Descargar Factura PDF</span>
+                        </button>
+                      )}
+                  </div>
+
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setProyectoEnFacturacion(null)}
+                      className="btn btn-outline-secondary"
+                    >
+                      Cerrar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={procesandoFactura}
+                      className="btn btn-primary fw-bold"
+                    >
+                      {procesandoFactura
+                        ? "Emitiendo..."
+                        : proyectoEnFacturacion.folio_factura
+                        ? "Actualizar Factura"
+                        : "Emitir y Guardar Factura"}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>

@@ -10,10 +10,14 @@ namespace LuxmanErp.Controllers
     public class ProyectoVentaController : ControllerBase
     {
         private readonly ProyectoVentaService servicioProyectos;
+        private readonly FacturaPdfService servicioFacturaPdf;
 
-        public ProyectoVentaController(ProyectoVentaService servicioProyectos)
+        public ProyectoVentaController(
+            ProyectoVentaService servicioProyectos,
+            FacturaPdfService servicioFacturaPdf)
         {
             this.servicioProyectos = servicioProyectos;
+            this.servicioFacturaPdf = servicioFacturaPdf;
         }
 
         [HttpGet]
@@ -100,6 +104,57 @@ namespace LuxmanErp.Controllers
             catch (Exception error)
             {
                 return StatusCode(500, "Error al procesar el cierre de venta: " + error.Message);
+            }
+        }
+
+        [HttpPatch("{id_proyecto}/facturar")]
+        public IActionResult Facturar(int id_proyecto, [FromBody] FacturarProyectoDTO datos)
+        {
+            if (datos == null)
+                return BadRequest("No se recibieron los datos fiscales para facturar.");
+
+            try
+            {
+                var facturado = servicioProyectos.Facturar(id_proyecto, datos);
+                if (facturado == null)
+                    return NotFound("No se encontró el proyecto especificado.");
+                return Ok(facturado);
+            }
+            catch (ArgumentException errorValidacion)
+            {
+                return BadRequest(errorValidacion.Message);
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al generar la facturación del proyecto: " + error.Message);
+            }
+        }
+
+        [HttpGet("{id_proyecto}/factura-pdf")]
+        public IActionResult DescargarFacturaPdf(int id_proyecto)
+        {
+            try
+            {
+                var proyecto = servicioProyectos.ObtenerPorId(id_proyecto);
+                if (proyecto == null)
+                    return NotFound("No se encontró el proyecto especificado.");
+
+                if (string.IsNullOrWhiteSpace(proyecto.EstadoFacturacion) ||
+                    string.Equals(proyecto.EstadoFacturacion, "PENDIENTE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("Este proyecto aún no ha sido facturado.");
+                }
+
+                byte[] bytesPdf = servicioFacturaPdf.GenerarPdfFactura(proyecto);
+                string nombreArchivo = string.IsNullOrWhiteSpace(proyecto.FolioFactura)
+                    ? $"Factura_{proyecto.CodigoFolio}.pdf"
+                    : $"{proyecto.FolioFactura}.pdf";
+
+                return File(bytesPdf, "application/pdf", nombreArchivo);
+            }
+            catch (Exception error)
+            {
+                return StatusCode(500, "Error al generar el PDF de la factura: " + error.Message);
             }
         }
 
