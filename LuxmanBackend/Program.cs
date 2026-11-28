@@ -9,13 +9,15 @@ var constructor = WebApplication.CreateBuilder(args);
 
 constructor.Services.AddControllers();
 
-// registramos los servicios de postgres, clientes, calculos tecnicos, ventas y mongo
+// registramos los servicios de postgres, clientes, calculos, ventas, dashboard, actas y mongo
 constructor.Services.AddScoped<ClienteService>();
 constructor.Services.AddScoped<CotizacionService>();
 constructor.Services.AddScoped<PdfService>();
 constructor.Services.AddScoped<CalculoTanqueService>();
 constructor.Services.AddScoped<CalculoTanquePdfService>();
 constructor.Services.AddScoped<ProyectoVentaService>();
+constructor.Services.AddScoped<DashboardService>();
+constructor.Services.AddScoped<ActaEntregaService>();
 constructor.Services.AddScoped<SolicitudContactoService>();
 constructor.Services.AddSingleton<AdminAuthService>();
 constructor.Services.AddSingleton<MemebreteRepository>();
@@ -40,8 +42,8 @@ using (var alcance = aplicacion.Services.CreateScope())
 {
     try
     {
-        var servicioProyectos = alcance.ServiceProvider.GetRequiredService<ProyectoVentaService>();
-        servicioProyectos.AsegurarEsquemaInicial();
+        var servicioActas = alcance.ServiceProvider.GetRequiredService<ActaEntregaService>();
+        servicioActas.AsegurarEsquemaInicial();
     }
     catch (Exception errorMigracion)
     {

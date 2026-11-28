@@ -1,5 +1,6 @@
--- script para crear las tablas de clientes, cotizaciones, calculos tecnicos, solicitudes y proyectos de venta
+-- script para crear las tablas de clientes, cotizaciones, calculos tecnicos, solicitudes, proyectos de venta y actas de entrega
 
+DROP TABLE IF EXISTS actas_entrega;
 DROP TABLE IF EXISTS proyectos_venta;
 DROP TABLE IF EXISTS calculos_tanques;
 DROP TABLE IF EXISTS solicitudes_contacto;
@@ -105,12 +106,26 @@ CREATE TABLE proyectos_venta (
     eliminado                 BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- tabla de actas de entrega logistica con firma digital en base64 (ACT-2026-001)
+CREATE TABLE actas_entrega (
+    id_acta          SERIAL PRIMARY KEY,
+    numero_folio     INTEGER NOT NULL DEFAULT 1,
+    id_proyecto      INTEGER REFERENCES proyectos_venta(id_proyecto) ON DELETE SET NULL,
+    nombre_receptor  VARCHAR(150) NOT NULL,
+    puesto_receptor  VARCHAR(120),
+    observaciones    TEXT,
+    firma_base64     TEXT NOT NULL,
+    fecha_entrega    TIMESTAMP DEFAULT NOW(),
+    eliminado        BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 CREATE INDEX idx_cotizaciones_cliente ON cotizaciones(id_cliente);
 CREATE INDEX idx_calculos_tanques_fecha ON calculos_tanques(fecha_creacion DESC);
 CREATE INDEX idx_calculos_tanques_cliente ON calculos_tanques(id_cliente);
 CREATE INDEX idx_calculos_tanques_eliminado ON calculos_tanques(eliminado, numero_folio);
 CREATE INDEX idx_proyectos_venta_activo ON proyectos_venta(eliminado, numero_folio);
 CREATE INDEX idx_proyectos_venta_cliente ON proyectos_venta(id_cliente);
+CREATE INDEX idx_actas_entrega_proyecto ON actas_entrega(id_proyecto);
 
 -- clientes iniciales precargados para el Ing. Raul con su sector real
 INSERT INTO clientes (nombre_cliente, sector, rfc_cliente, telefono, correo, tiene_descuento) VALUES
