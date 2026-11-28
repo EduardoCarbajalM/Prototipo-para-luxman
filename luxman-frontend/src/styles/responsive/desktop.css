@@ -1,0 +1,38 @@
+/* ==========================================================================
+   LUXMAN ERP — Arquitectura Responsiva: ESCRITORIO (>= 1024px)
+   Conserva el layout fijo de barra lateral izquierda y vistas amplias.
+   ========================================================================== */
+
+@media (min-width: 1024px) {
+  .luxman-erp-topbar,
+  .luxman-erp-backdrop,
+  .luxman-drawer-cerrar {
+    display: none !important;
+  }
+
+  .luxman-erp-layout {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+    width: 100%;
+  }
+
+  .luxman-erp-sidebar {
+    width: 248px;
+    min-width: 248px;
+    max-width: 248px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    flex-shrink: 0;
+    z-index: 20;
+  }
+
+  .luxman-erp-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}

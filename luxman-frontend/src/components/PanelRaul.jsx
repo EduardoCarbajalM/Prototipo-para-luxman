@@ -649,6 +649,7 @@ function PanelRaul({ alCerrarSesion }) {
   // Pestaña activa por defecto al iniciar sesión: Dashboard Ejecutivo ('dashboard')
   const [submoduloActual, setSubmoduloActual] = useState('dashboard');
   const [borradorProyecto, setBorradorProyecto] = useState(null);
+  const [menuAbierto, setMenuAbierto] = useState(false);
 
   const opcionesMenu = [
     { id: 'dashboard', texto: 'Dashboard Ejecutivo' },
@@ -660,24 +661,91 @@ function PanelRaul({ alCerrarSesion }) {
     { id: 'acta', texto: 'Acta de Entrega Logística' },
   ];
 
+  const moduloActivoObj =
+    opcionesMenu.find((op) => op.id === submoduloActual) || opcionesMenu[0];
+
+  const cambiarSubmodulo = useCallback((idDestino) => {
+    setSubmoduloActual(idDestino);
+    setMenuAbierto(false);
+  }, []);
+
+  // Cierra el drawer con tecla Escape y bloquea el scroll del fondo mientras está abierto en móvil/tableta
+  useEffect(() => {
+    if (!menuAbierto) {
+      document.body.style.removeProperty('overflow');
+      return;
+    }
+
+    document.body.style.overflow = 'hidden';
+    const manejarTecla = (e) => {
+      if (e.key === 'Escape') setMenuAbierto(false);
+    };
+    window.addEventListener('keydown', manejarTecla);
+    return () => {
+      document.body.style.removeProperty('overflow');
+      window.removeEventListener('keydown', manejarTecla);
+    };
+  }, [menuAbierto]);
+
   const manejarConvertirSolicitud = (datosPrecargados) => {
     setBorradorProyecto(datosPrecargados);
     setSubmoduloActual('ventas');
+    setMenuAbierto(false);
   };
 
   return (
-    <div className="row g-0 min-vh-100">
-      {/* ===== SIDEBAR ===== */}
-      <aside className="col-12 col-md-3 col-lg-2 bg-dark text-white d-flex flex-column p-3">
-        <h5 className="fw-bold mb-0">LUXMAN ERP</h5>
-        <small className="text-secondary mb-4">Panel del Ing. Raúl Romero</small>
+    <div className="luxman-erp-layout">
+      {/* ===== BARRA SUPERIOR MÓVIL / TABLETA (< 1024px) ===== */}
+      <header className="luxman-erp-topbar">
+        <div className="luxman-topbar-izq">
+          <button
+            type="button"
+            className="luxman-btn-hamburguesa"
+            onClick={() => setMenuAbierto((abierto) => !abierto)}
+            aria-label="Abrir menú de navegación"
+            aria-expanded={menuAbierto}
+          >
+            ☰
+          </button>
+          <span className="luxman-topbar-modulo">{moduloActivoObj.texto}</span>
+        </div>
+        <span className="luxman-topbar-marca">LUXMAN ERP</span>
+      </header>
+
+      {/* ===== FONDO SEMITRANSPARENTE PARA CERRAR DRAWER AL TOCAR FUERA ===== */}
+      <div
+        className={`luxman-erp-backdrop ${menuAbierto ? 'visible' : ''}`}
+        onClick={() => setMenuAbierto(false)}
+        aria-hidden="true"
+      />
+
+      {/* ===== SIDEBAR FIJO EN ESCRITORIO / DRAWER EN MÓVIL Y TABLETA ===== */}
+      <aside
+        className={`luxman-erp-sidebar bg-dark text-white d-flex flex-column p-3 ${
+          menuAbierto ? 'abierto' : ''
+        }`}
+      >
+        <div className="d-flex justify-content-between align-items-start mb-4">
+          <div>
+            <h5 className="fw-bold mb-0">LUXMAN ERP</h5>
+            <small className="text-secondary">Panel del Ing. Raúl Romero</small>
+          </div>
+          <button
+            type="button"
+            className="luxman-drawer-cerrar"
+            onClick={() => setMenuAbierto(false)}
+            aria-label="Cerrar menú"
+          >
+            ✕
+          </button>
+        </div>
 
         <ul className="nav nav-pills flex-column gap-1 mb-4">
           {opcionesMenu.map((opcion) => (
             <li className="nav-item" key={opcion.id}>
               <button
                 type="button"
-                onClick={() => setSubmoduloActual(opcion.id)}
+                onClick={() => cambiarSubmodulo(opcion.id)}
                 className={`nav-link w-100 text-start ${
                   submoduloActual === opcion.id ? 'active' : 'text-white'
                 }`}
@@ -690,15 +758,18 @@ function PanelRaul({ alCerrarSesion }) {
 
         <button
           type="button"
-          onClick={alCerrarSesion}
-          className="btn btn-outline-light btn-sm mt-md-auto"
+          onClick={() => {
+            setMenuAbierto(false);
+            alCerrarSesion();
+          }}
+          className="btn btn-outline-light btn-sm mt-auto"
         >
           Cerrar sesión
         </button>
       </aside>
 
-      {/* ===== CONTENIDO ===== */}
-      <main className="col bg-light overflow-auto">
+      {/* ===== CONTENIDO PRINCIPAL ===== */}
+      <main className="luxman-erp-main bg-light">
         <motion.div
           key={submoduloActual}
           initial={{ opacity: 0, y: 20 }}
@@ -706,7 +777,7 @@ function PanelRaul({ alCerrarSesion }) {
           transition={{ duration: 0.35 }}
         >
           {submoduloActual === 'dashboard' && (
-            <DashboardEjecutivo alCambiarSubmodulo={setSubmoduloActual} />
+            <DashboardEjecutivo alCambiarSubmodulo={cambiarSubmodulo} />
           )}
           {submoduloActual === 'cotizador' && <FormularioCotizacion />}
           {submoduloActual === 'memebretes' && <ChatMemebretes />}
@@ -724,7 +795,7 @@ function PanelRaul({ alCerrarSesion }) {
           )}
           {submoduloActual === 'crm' && <DirectorioClientes />}
           {submoduloActual === 'acta' && (
-            <ActaEntregaLogistica alIrAVentas={() => setSubmoduloActual('ventas')} />
+            <ActaEntregaLogistica alIrAVentas={() => cambiarSubmodulo('ventas')} />
           )}
         </motion.div>
       </main>

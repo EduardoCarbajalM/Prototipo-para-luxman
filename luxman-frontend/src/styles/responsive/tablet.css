@@ -1,0 +1,183 @@
+/* ==========================================================================
+   LUXMAN ERP — Arquitectura Responsiva: TABLETA (768px a 1023px)
+   Menú lateral en drawer desplegable, grids de 2 columnas y controles táctiles.
+   ========================================================================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .luxman-erp-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100%;
+    padding-top: 58px;
+  }
+
+  /* Barra superior fija con botón hamburguesa (☰), módulo activo y marca */
+  .luxman-erp-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 58px;
+    background: #0f172a;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 18px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.22);
+    z-index: 1040;
+  }
+
+  .luxman-topbar-izq {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .luxman-btn-hamburguesa {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 1.35rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .luxman-btn-hamburguesa:active {
+    background: rgba(37, 99, 235, 0.55);
+  }
+
+  .luxman-topbar-modulo {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .luxman-topbar-marca {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #93c5fd;
+    background: rgba(37, 99, 235, 0.2);
+    border: 1px solid rgba(147, 197, 253, 0.3);
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Fondo oscuro semitransparente detrás del drawer */
+  .luxman-erp-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 1050;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .luxman-erp-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Menú lateral oculto por defecto y desplegable como drawer */
+  .luxman-erp-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 285px;
+    max-width: 82vw;
+    overflow-y: auto;
+    z-index: 1055;
+    transform: translateX(-105%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 8px 0 28px rgba(15, 23, 42, 0.35);
+  }
+
+  .luxman-erp-sidebar.abierto {
+    transform: translateX(0);
+  }
+
+  .luxman-drawer-cerrar {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: #ffffff;
+    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .luxman-erp-main {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  /* Grids adaptados cómodamente a 2 columnas en tableta */
+  .luxman-erp-main .row > .col-md-3,
+  .luxman-erp-main .row > .col-md-4,
+  .luxman-erp-main .row > .col-xl-3,
+  .luxman-erp-main .row > .col-lg-6 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+
+  /* Tablas con desplazamiento horizontal fluido */
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Controles táctiles cómodos en tableta */
+  .luxman-erp-sidebar .nav-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 0.96rem;
+  }
+
+  .luxman-erp-main .btn:not(.btn-close):not(.btn-link),
+  .luxman-erp-main .form-control,
+  .luxman-erp-main .form-select {
+    min-height: 42px;
+  }
+
+  /* Ajuste de altura del chat de membretes debajo del topbar */
+  .luxman-erp-main .mb-app {
+    height: calc(100dvh - 58px);
+    min-height: calc(100vh - 58px);
+  }
+
+  /* SVG y Canvas responsivos al ancho del contenedor */
+  #luxman-area-impresion-plano svg,
+  .luxman-erp-main canvas {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+}
