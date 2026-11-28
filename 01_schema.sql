@@ -78,6 +78,7 @@ CREATE TABLE solicitudes_contacto (
     empresa        VARCHAR(150),
     correo         VARCHAR(150) NOT NULL,
     telefono       VARCHAR(30) NOT NULL,
+    sector         VARCHAR(60),
     tipo_equipo    VARCHAR(100),
     mensaje        TEXT,
     atendida       BOOLEAN DEFAULT FALSE,

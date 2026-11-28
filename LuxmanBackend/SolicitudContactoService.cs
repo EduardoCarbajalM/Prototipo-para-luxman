@@ -6,7 +6,7 @@ using LuxmanErp.Models;
 
 namespace LuxmanErp.Services
 {
-    // guarda en postgres las solicitudes de contacto que llegan desde la landing page
+    // guarda en postgres las solicitudes de prospeccion que llegan desde el asistente de la landing page
     public class SolicitudContactoService
     {
         private readonly string cadenaConexion;
@@ -24,22 +24,27 @@ namespace LuxmanErp.Services
             conexion.Open();
             AsegurarTabla(conexion);
 
+            string? sectorNormalizado = string.IsNullOrWhiteSpace(datos.Sector)
+                ? null
+                : ClienteService.NormalizarSector(datos.Sector);
+
             using var comando = new NpgsqlCommand(@"
-                INSERT INTO solicitudes_contacto (nombre, empresa, correo, telefono, tipo_equipo, mensaje)
-                VALUES (@nombre, @empresa, @correo, @telefono, @tipo_equipo, @mensaje)
+                INSERT INTO solicitudes_contacto (nombre, empresa, correo, telefono, sector, tipo_equipo, mensaje)
+                VALUES (@nombre, @empresa, @correo, @telefono, @sector, @tipo_equipo, @mensaje)
                 RETURNING id_solicitud;", conexion);
 
             comando.Parameters.AddWithValue("nombre", datos.Nombre!.Trim());
             comando.Parameters.AddWithValue("empresa", (object?)datos.Empresa?.Trim() ?? DBNull.Value);
             comando.Parameters.AddWithValue("correo", datos.Correo!.Trim());
             comando.Parameters.AddWithValue("telefono", datos.Telefono!.Trim());
+            comando.Parameters.AddWithValue("sector", (object?)sectorNormalizado ?? DBNull.Value);
             comando.Parameters.AddWithValue("tipo_equipo", (object?)datos.TipoEquipo?.Trim() ?? DBNull.Value);
             comando.Parameters.AddWithValue("mensaje", (object?)datos.Mensaje?.Trim() ?? DBNull.Value);
 
             return (int)comando.ExecuteScalar()!;
         }
 
-        // se crea la tabla si no existe para no depender de reiniciar el volumen de la base
+        // se crea la tabla y columna sector si no existen para mantener migracion segura
         private static void AsegurarTabla(NpgsqlConnection conexion)
         {
             using var crear = new NpgsqlCommand(@"
@@ -49,11 +54,13 @@ namespace LuxmanErp.Services
                     empresa        VARCHAR(150),
                     correo         VARCHAR(150) NOT NULL,
                     telefono       VARCHAR(30) NOT NULL,
+                    sector         VARCHAR(60),
                     tipo_equipo    VARCHAR(100),
                     mensaje        TEXT,
                     atendida       BOOLEAN DEFAULT FALSE,
                     fecha_creacion TIMESTAMP DEFAULT NOW()
-                );", conexion);
+                );
+                ALTER TABLE solicitudes_contacto ADD COLUMN IF NOT EXISTS sector VARCHAR(60);", conexion);
             crear.ExecuteNonQuery();
         }
 
@@ -65,7 +72,7 @@ namespace LuxmanErp.Services
             AsegurarTabla(conexion);
 
             using var comando = new NpgsqlCommand(@"
-                SELECT id_solicitud, nombre, empresa, correo, telefono, tipo_equipo, mensaje, atendida, fecha_creacion
+                SELECT id_solicitud, nombre, empresa, correo, telefono, sector, tipo_equipo, mensaje, atendida, fecha_creacion
                 FROM solicitudes_contacto
                 ORDER BY fecha_creacion DESC;", conexion);
 
@@ -80,10 +87,11 @@ namespace LuxmanErp.Services
                     Empresa = lector.IsDBNull(2) ? null : lector.GetString(2),
                     Correo = lector.GetString(3),
                     Telefono = lector.GetString(4),
-                    TipoEquipo = lector.IsDBNull(5) ? null : lector.GetString(5),
-                    Mensaje = lector.IsDBNull(6) ? null : lector.GetString(6),
-                    Atendida = !lector.IsDBNull(7) && lector.GetBoolean(7),
-                    FechaCreacion = lector.GetDateTime(8)
+                    Sector = lector.IsDBNull(5) ? null : lector.GetString(5),
+                    TipoEquipo = lector.IsDBNull(6) ? null : lector.GetString(6),
+                    Mensaje = lector.IsDBNull(7) ? null : lector.GetString(7),
+                    Atendida = !lector.IsDBNull(8) && lector.GetBoolean(8),
+                    FechaCreacion = lector.GetDateTime(9)
                 });
             }
             return lista;

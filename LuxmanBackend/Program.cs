@@ -22,6 +22,7 @@ constructor.Services.AddScoped<ActaEntregaService>();
 constructor.Services.AddScoped<ActaEntregaPdfService>();
 constructor.Services.AddScoped<HistoricoComercialSeeder>();
 constructor.Services.AddScoped<SolicitudContactoService>();
+constructor.Services.AddSingleton<NotificacionCorreoService>();
 constructor.Services.AddSingleton<AdminAuthService>();
 constructor.Services.AddSingleton<MemebreteRepository>();
 constructor.Services.AddSingleton<MemebretePdfService>();

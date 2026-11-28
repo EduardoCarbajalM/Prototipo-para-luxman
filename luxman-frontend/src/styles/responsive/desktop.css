@@ -32,4 +32,9 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
+
+  /* Ajustes amplios de escritorio para la Landing Page Industrial */
+  .lx-landing .lx-hero-section {
+    padding: 5.25rem 0 4.5rem;
+  }
 }

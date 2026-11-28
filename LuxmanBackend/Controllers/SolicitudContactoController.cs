@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using LuxmanErp.Models;
 using LuxmanErp.Services;
@@ -19,11 +20,16 @@ namespace LuxmanErp.Controllers
     {
         private readonly SolicitudContactoService servicio;
         private readonly AdminAuthService auth;
+        private readonly NotificacionCorreoService notificadorCorreo;
 
-        public SolicitudContactoController(SolicitudContactoService servicio, AdminAuthService auth)
+        public SolicitudContactoController(
+            SolicitudContactoService servicio,
+            AdminAuthService auth,
+            NotificacionCorreoService notificadorCorreo)
         {
             this.servicio = servicio;
             this.auth = auth;
+            this.notificadorCorreo = notificadorCorreo;
         }
 
         // solo el panel del ingeniero (con token de sesion) puede ver los datos de los interesados
@@ -60,12 +66,12 @@ namespace LuxmanErp.Controllers
             }
         }
 
-        // recibe el formulario de la landing page
+        // recibe las solicitudes del asistente conversacional de la landing page
         [HttpPost]
         public IActionResult Crear([FromBody] SolicitudContactoDTO datos)
         {
             if (datos == null)
-                return BadRequest("No llegaron los datos del formulario.");
+                return BadRequest("No llegaron los datos de la solicitud.");
 
             if (string.IsNullOrWhiteSpace(datos.Nombre) || datos.Nombre.Length > 150)
                 return BadRequest("El nombre es obligatorio.");
@@ -85,6 +91,10 @@ namespace LuxmanErp.Controllers
             try
             {
                 int id = servicio.Guardar(datos);
+
+                // disparo asincrono no bloqueante: nunca retrasa ni hace fallar el guardado en PostgreSQL
+                _ = Task.Run(() => notificadorCorreo.EnviarNotificacionNuevaSolicitudAsync(id, datos));
+
                 return Ok(new RespuestaSolicitudCreadaDTO { IdSolicitud = id });
             }
             catch (Exception)

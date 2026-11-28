@@ -28,6 +28,12 @@ services:
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=postgres;Username=postgres;Password=admin
       - ConnectionStrings__LuxmanDb=Host=db;Port=5432;Database=postgres;Username=postgres;Password=admin
       - ConnectionStrings__MongoDb=mongodb://mongo:27017
+      - SMTP_HOST=${SMTP_HOST:-smtp.hostinger.com}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_DESTINO=${SMTP_DESTINO:-equipos@luxman.tech}
+      - APP_BASE_URL=${APP_BASE_URL:-https://luxman.tech}
     depends_on:
       - db
       - mongo

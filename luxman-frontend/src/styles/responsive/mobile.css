@@ -272,4 +272,64 @@
     height: calc(100dvh - 56px);
     min-height: calc(100vh - 56px);
   }
+
+  /* Adaptación táctil de la Landing Page Industrial en Celular (<= 767px) */
+  .lx-landing .lx-hero-section {
+    padding: 2.4rem 0 2.5rem;
+  }
+
+  .lx-landing .lx-section {
+    padding: 2.75rem 0;
+  }
+
+  .lx-landing .lx-tech-grid,
+  .lx-landing .lx-options-grid,
+  .lx-landing .lx-preview-stages {
+    grid-template-columns: 1fr;
+  }
+
+  .lx-landing .lx-tracker-shell,
+  .lx-landing .lx-sector-detail {
+    padding: 1.2rem;
+  }
+
+  .lx-landing .lx-tracker-input-group {
+    flex-direction: column;
+  }
+
+  .lx-landing .lx-tracker-input-group .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .lx-landing .lx-input,
+  .lx-landing .lx-option-btn,
+  .lx-landing .lx-sector-row {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+
+  .lx-landing .lx-sector-brief {
+    white-space: normal;
+  }
+
+  .lx-landing .lx-map-wrapper {
+    border-left: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    min-height: 270px;
+  }
+
+  .lx-landing .lx-map-iframe {
+    min-height: 270px;
+  }
+
+  .lx-landing .lx-floating-root {
+    right: 12px;
+    bottom: 14px;
+  }
+
+  .lx-landing .lx-floating-fab {
+    padding: 0.72rem 1rem;
+    font-size: 0.84rem;
+  }
 }

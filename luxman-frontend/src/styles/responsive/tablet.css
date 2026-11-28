@@ -180,4 +180,19 @@
     width: 100% !important;
     height: auto !important;
   }
+
+  /* Adaptación de la Landing Page Industrial en Tableta (768px - 1023px) */
+  .lx-landing .lx-hero-section {
+    padding: 3.25rem 0 3rem;
+  }
+
+  .lx-landing .lx-section {
+    padding: 3.5rem 0;
+  }
+
+  .lx-landing .lx-map-wrapper {
+    border-left: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    min-height: 320px;
+  }
 }
