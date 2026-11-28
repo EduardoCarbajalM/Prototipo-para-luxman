@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Npgsql;
 using NpgsqlTypes;
 using Microsoft.Extensions.Configuration;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Configuration;
 namespace LuxmanErp.Services
 {
     // inicializa y migra de forma idempotente el catalogo de 10 clientes y el historico comercial 2025-2026
-    // cubre unicamente 2025 y 2026 con montos realistas entre $80,000 y $160,000 MXN (< $200,000 MXN)
+    // deja exactamente 1 proyecto APROBADO activo en taller (entrega 2026-12-28) y 16 entregados con acta (10 en 2025 + 6 en 2026)
     public class HistoricoComercialSeeder
     {
         private readonly string cadenaConexion;
@@ -40,6 +41,17 @@ namespace LuxmanErp.Services
             string? ObservacionesActa = null
         );
 
+        private record AjusteEntrega2026(
+            string NombreProyecto,
+            string FechaCreacion,
+            string FechaCierre,
+            string FechaEntrega,
+            string FolioFacturaPreferido,
+            string ReceptorActa,
+            string PuestoActa,
+            string ObservacionesActa
+        );
+
         public HistoricoComercialSeeder(IConfiguration configuracion)
         {
             cadenaConexion = configuracion.GetConnectionString("DefaultConnection")
@@ -68,16 +80,17 @@ namespace LuxmanErp.Services
                 registros2024 = lector.GetInt64(1);
             }
 
-            // idempotencia estricta: si ya existe el historico 2025-2026 (sin registros 2024), no duplica ni toca nada
+            // si la base ya cuenta con el historico 2025-2026 (sin registros 2024),
+            // verificamos si aun tiene los 4 pedidos activos anteriores para migrarlos de forma segura a 1 solo activo
             if (totalExistentes > 0 && registros2024 == 0)
             {
+                MigrarCuatroActivosAUnoSiAplica(conexion);
                 return;
             }
 
             using var transaccion = conexion.BeginTransaction();
 
-            // si venimos de una base con la semilla anterior (que contenia registros 2024 y montos > $200k),
-            // limpiamos esos registros semilla manteniendo cualquier proyecto creado manualmente por el usuario hoy
+            // si venimos de una base con registros de 2024, limpiamos unicamente la semilla antigua sin tocar calculos_tanques ni MongoDB
             if (registros2024 > 0)
             {
                 using (var limpiarActasAntiguas = new NpgsqlCommand(@"
@@ -181,7 +194,7 @@ namespace LuxmanErp.Services
 
             // 2. Historico comercial 2025-2026 (40 proyectos: 17 APROBADO [42.5% cierre], 19 RECHAZADO, 4 COTIZADO)
             //    - 2025: 10 APROBADO (todos Entregado con acta) + 12 RECHAZADO
-            //    - 2026: 7 APROBADO (3 Entregado con acta + 4 activos en taller dic 2026 - ene 2027) + 7 RECHAZADO + 4 COTIZADO
+            //    - 2026: 7 APROBADO (6 Entregado feb-nov 2026 con acta + 1 unico activo en taller entrega 2026-12-28) + 7 RECHAZADO + 4 COTIZADO
             //    - Todos los montos entre $80,000 y $160,000 MXN (< $200,000 MXN)
             var historico = new SemillaProyecto[]
             {
@@ -272,7 +285,7 @@ namespace LuxmanErp.Services
                 new(22, "Dermocosmética Botánica de Occidente SA de CV", "Tanque Pulmón de Hidrolatos 1,000 L", "Cosmética", 98000m,
                     "RECHAZADO", "Cotizado", 0m, "2025-12-04 12:15:00", "2025-12-18 16:30:00", null),
 
-                // ===== 2026 (18 proyectos: 3 Entregado + 4 activos en taller + 7 RECHAZADO + 4 COTIZADO) =====
+                // ===== 2026 (18 proyectos: 6 Entregado [feb-nov 2026] + 1 activo en taller + 7 RECHAZADO + 4 COTIZADO) =====
                 new(23, "Lácteos del Norte SA de CV", "Tanque Pasteurizador Lácteo 1,000 L Fondo Cónico", "Agroalimentaria", 146000m,
                     "APROBADO", "Entregado", 50m, "2026-01-14 10:15:00", "2026-01-20 15:40:00", "2026-02-27",
                     "FACTURADO_TOTAL", "FAC-2026-001", "PUE", "2026-02-27 14:15:00",
@@ -309,20 +322,24 @@ namespace LuxmanErp.Services
                 new(32, "Farbe SA de CV", "Tanque Pulmón de Emulsiones 1,200 L AISI 304", "Química", 109000m,
                     "RECHAZADO", "Cotizado", 0m, "2026-09-22 14:30:00", "2026-10-06 11:50:00", null),
 
-                // --- 4 proyectos APROBADO activos en taller (repartidos en las 4 etapas previas, entregas dic 2026 - ene 2027) ---
                 new(33, "Procesadora Agroindustrial de Puebla SA de CV", "Tanque Enchaquetado Pasteurizador 1,200 L Fondo Cónico", "Agroalimentaria", 149000m,
-                    "APROBADO", "Listo para Entrega", 50m, "2026-10-08 10:00:00", "2026-10-14 14:30:00", "2026-12-05",
-                    "ANTICIPO_FACTURADO", "FAC-2026-004", "PPD", "2026-10-15 11:20:00"),
+                    "APROBADO", "Entregado", 50m, "2026-07-08 10:00:00", "2026-07-14 14:30:00", "2026-08-21",
+                    "FACTURADO_TOTAL", "FAC-2026-004", "PUE", "2026-08-21 14:15:00",
+                    "Ing. Mauricio Téllez", "Gerente de Planta", "Tanque enchaquetado pasteurizador entregado con pruebas de presión en chaqueta aprobadas."),
 
                 new(34, "Farmacéutica Sanitaria Metropolitana SA de CV", "Reactor Sanitario 500 L Fondo Toriesférico AISI 316L", "Farmacéutica", 160000m,
-                    "APROBADO", "Soldadura y Pulido Sanitario", 60m, "2026-10-22 11:45:00", "2026-10-27 16:00:00", "2026-12-19",
-                    "ANTICIPO_FACTURADO", "FAC-2026-005", "PPD", "2026-10-28 12:00:00"),
+                    "APROBADO", "Entregado", 60m, "2026-08-19 11:45:00", "2026-08-25 16:00:00", "2026-10-02",
+                    "FACTURADO_TOTAL", "FAC-2026-005", "PUE", "2026-10-02 14:20:00",
+                    "Ing. Gabriela Morales", "Jefa de Validación Sanitaria", "Reactor sanitario AISI 316L entregado con dossier de pulido sanitario y certificados de colada."),
 
-                new(35, "Cosméticos Naturales Ideal SA de CV", "Tanque de Formulaciones Cosméticas 1,000 L con Agitación", "Cosmética", 138000m,
-                    "APROBADO", "En Fabricación (Corte y Rolado)", 50m, "2026-11-05 09:50:00", "2026-11-10 13:15:00", "2027-01-12"),
+                new(35, "Farbe SA de CV", "Reactor de Resinas 1,500 L Acero Inoxidable 316L", "Química", 158000m,
+                    "APROBADO", "Entregado", 50m, "2026-09-30 12:10:00", "2026-10-05 17:30:00", "2026-11-13",
+                    "FACTURADO_TOTAL", "FAC-2026-006", "PUE", "2026-11-13 14:10:00",
+                    "Ing. Arturo Peñaloza", "Superintendente de Ingeniería", "Reactor de resinas 316L entregado en planta y recibido de entera conformidad."),
 
-                new(36, "Farbe SA de CV", "Reactor de Resinas 1,500 L Acero Inoxidable 316L", "Química", 158000m,
-                    "APROBADO", "Aprobado / Anticipo Recibido", 50m, "2026-11-16 12:10:00", "2026-11-20 17:30:00", "2027-01-26"),
+                // --- UNICO proyecto APROBADO activo actualmente en taller (entrega 28/12/2026) ---
+                new(36, "Cosméticos Naturales Ideal SA de CV", "Tanque de Formulaciones Cosméticas 1,000 L con Agitación", "Cosmética", 138000m,
+                    "APROBADO", "Soldadura y Pulido Sanitario", 50m, "2026-11-12 09:50:00", "2026-11-17 13:15:00", "2026-12-28"),
 
                 // --- 4 proyectos COTIZADO pendientes de cierre (noviembre 2026) ---
                 new(37, "Lácteos del Norte SA de CV", "Tanque de Crema Maduradora 800 L Fondo Cónico", "Agroalimentaria", 128000m,
@@ -338,7 +355,6 @@ namespace LuxmanErp.Services
                     "COTIZADO", "Cotizado", 0m, "2026-11-26 16:40:00", null, null),
             };
 
-            // obtenemos los folios ya ocupados en caso de que existiera algun proyecto manual hoy
             var foliosOcupadosProy = new HashSet<int>();
             using (var cmdOcc = new NpgsqlCommand("SELECT DISTINCT numero_folio FROM proyectos_venta WHERE NOT COALESCE(eliminado, FALSE);", conexion, transaccion))
             {
@@ -377,10 +393,10 @@ namespace LuxmanErp.Services
                     totalFactura = Math.Round(subtotalFactura + ivaFactura, 2);
                 }
 
-                DateTime fechaCreacion = DateTime.Parse(p.FechaCreacion);
-                DateTime? fechaCierre = p.FechaCierre != null ? DateTime.Parse(p.FechaCierre) : null;
-                DateTime? fechaCompromiso = p.FechaCompromiso != null ? DateTime.Parse(p.FechaCompromiso).Date : null;
-                DateTime? fechaFacturacion = p.FechaFacturacion != null ? DateTime.Parse(p.FechaFacturacion) : null;
+                DateTime fechaCreacion = DateTime.Parse(p.FechaCreacion, CultureInfo.InvariantCulture);
+                DateTime? fechaCierre = p.FechaCierre != null ? DateTime.Parse(p.FechaCierre, CultureInfo.InvariantCulture) : null;
+                DateTime? fechaCompromiso = p.FechaCompromiso != null ? DateTime.Parse(p.FechaCompromiso, CultureInfo.InvariantCulture).Date : null;
+                DateTime? fechaFacturacion = p.FechaFacturacion != null ? DateTime.Parse(p.FechaFacturacion, CultureInfo.InvariantCulture) : null;
 
                 int idProyectoInsertado;
                 using (var cmdProy = new NpgsqlCommand(@"
@@ -439,7 +455,6 @@ namespace LuxmanErp.Services
                     idProyectoInsertado = (int)cmdProy.ExecuteScalar()!;
                 }
 
-                // si el proyecto historico ya fue entregado, generamos su acta de entrega firmada
                 if (p.EtapaFabricacion == "Entregado" && p.ReceptorActa != null && fechaCompromiso.HasValue)
                 {
                     while (foliosOcupadosActa.Contains(folioActaCursor)) folioActaCursor++;
@@ -468,6 +483,224 @@ namespace LuxmanErp.Services
             }
 
             transaccion.Commit();
+        }
+
+        // si la base ya tenia los 4 proyectos activos en taller del corte anterior,
+        // pasa 3 a Entregado (con su acta firmada) y ajusta el unico activo de Cosmeticos Naturales Ideal al 2026-12-28
+        private static void MigrarCuatroActivosAUnoSiAplica(NpgsqlConnection conexion)
+        {
+            var entregasPorCerrar = new AjusteEntrega2026[]
+            {
+                new(
+                    "Tanque Enchaquetado Pasteurizador 1,200 L Fondo Cónico",
+                    "2026-07-08 10:00:00",
+                    "2026-07-14 14:30:00",
+                    "2026-08-21",
+                    "FAC-2026-004",
+                    "Ing. Mauricio Téllez",
+                    "Gerente de Planta",
+                    "Tanque enchaquetado pasteurizador entregado con pruebas de presión en chaqueta aprobadas."
+                ),
+                new(
+                    "Reactor Sanitario 500 L Fondo Toriesférico AISI 316L",
+                    "2026-08-19 11:45:00",
+                    "2026-08-25 16:00:00",
+                    "2026-10-02",
+                    "FAC-2026-005",
+                    "Ing. Gabriela Morales",
+                    "Jefa de Validación Sanitaria",
+                    "Reactor sanitario AISI 316L entregado con dossier de pulido sanitario y certificados de colada."
+                ),
+                new(
+                    "Reactor de Resinas 1,500 L Acero Inoxidable 316L",
+                    "2026-09-30 12:10:00",
+                    "2026-10-05 17:30:00",
+                    "2026-11-13",
+                    "FAC-2026-006",
+                    "Ing. Arturo Peñaloza",
+                    "Superintendente de Ingeniería",
+                    "Reactor de resinas 316L entregado en planta y recibido de entera conformidad."
+                )
+            };
+
+            long pendientesDeMigrar;
+            using (var cmdCheck = new NpgsqlCommand(@"
+                SELECT COUNT(*)
+                FROM proyectos_venta
+                WHERE NOT COALESCE(eliminado, FALSE)
+                  AND estado_venta = 'APROBADO'
+                  AND etapa_fabricacion <> 'Entregado'
+                  AND nombre_proyecto IN (
+                      'Tanque Enchaquetado Pasteurizador 1,200 L Fondo Cónico',
+                      'Reactor Sanitario 500 L Fondo Toriesférico AISI 316L',
+                      'Reactor de Resinas 1,500 L Acero Inoxidable 316L'
+                  );", conexion))
+            {
+                pendientesDeMigrar = Convert.ToInt64(cmdCheck.ExecuteScalar());
+            }
+
+            // si ya fueron migrados previamente, no modificamos nada para respetar cualquier cambio posterior del usuario
+            if (pendientesDeMigrar == 0)
+            {
+                return;
+            }
+
+            using var transaccion = conexion.BeginTransaction();
+
+            var foliosActaOcupados = new List<int>();
+            using (var cmdFoliosActa = new NpgsqlCommand(@"
+                SELECT DISTINCT numero_folio
+                FROM actas_entrega
+                WHERE NOT COALESCE(eliminado, FALSE) AND numero_folio > 0
+                ORDER BY numero_folio ASC;", conexion, transaccion))
+            {
+                using var r = cmdFoliosActa.ExecuteReader();
+                while (r.Read()) foliosActaOcupados.Add(r.GetInt32(0));
+            }
+
+            var foliosFacturaOcupados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmdFoliosFac = new NpgsqlCommand(@"
+                SELECT folio_factura
+                FROM proyectos_venta
+                WHERE NOT COALESCE(eliminado, FALSE) AND folio_factura IS NOT NULL;", conexion, transaccion))
+            {
+                using var r = cmdFoliosFac.ExecuteReader();
+                while (r.Read()) foliosFacturaOcupados.Add(r.GetString(0));
+            }
+
+            foreach (var aj in entregasPorCerrar)
+            {
+                int? idProy = null;
+                decimal montoCotizado = 0m;
+                string? folioFacActual = null;
+
+                using (var cmdBuscar = new NpgsqlCommand(@"
+                    SELECT id_proyecto, monto_cotizado, folio_factura
+                    FROM proyectos_venta
+                    WHERE NOT COALESCE(eliminado, FALSE)
+                      AND estado_venta = 'APROBADO'
+                      AND nombre_proyecto = @nombre
+                    ORDER BY id_proyecto ASC
+                    LIMIT 1;", conexion, transaccion))
+                {
+                    cmdBuscar.Parameters.AddWithValue("nombre", aj.NombreProyecto);
+                    using var r = cmdBuscar.ExecuteReader();
+                    if (r.Read())
+                    {
+                        idProy = r.GetInt32(0);
+                        montoCotizado = r.IsDBNull(1) ? 0m : r.GetDecimal(1);
+                        folioFacActual = r.IsDBNull(2) ? null : r.GetString(2);
+                    }
+                }
+
+                if (!idProy.HasValue) continue;
+
+                string folioFacFinal = !string.IsNullOrWhiteSpace(folioFacActual)
+                    ? folioFacActual
+                    : AsignarFolioFactura2026(aj.FolioFacturaPreferido, foliosFacturaOcupados);
+                foliosFacturaOcupados.Add(folioFacFinal);
+
+                decimal subtotal = Math.Round(montoCotizado, 2);
+                decimal iva = Math.Round(subtotal * TasaIva, 2);
+                decimal total = Math.Round(subtotal + iva, 2);
+
+                DateTime fechaCreacion = DateTime.Parse(aj.FechaCreacion, CultureInfo.InvariantCulture);
+                DateTime fechaCierre = DateTime.Parse(aj.FechaCierre, CultureInfo.InvariantCulture);
+                DateTime fechaEntregaDate = DateTime.Parse(aj.FechaEntrega, CultureInfo.InvariantCulture).Date;
+                DateTime fechaFacturacion = fechaEntregaDate.AddHours(14).AddMinutes(15);
+                DateTime fechaActa = fechaEntregaDate.AddHours(13).AddMinutes(30);
+
+                using (var cmdUpd = new NpgsqlCommand(@"
+                    UPDATE proyectos_venta
+                    SET etapa_fabricacion = 'Entregado',
+                        fecha_creacion = @fecha_creacion,
+                        fecha_cierre = @fecha_cierre,
+                        fecha_compromiso_entrega = @fecha_entrega,
+                        uso_cfdi = COALESCE(NULLIF(uso_cfdi, ''), 'I08 - Otra maquinaria y equipo'),
+                        regimen_fiscal = COALESCE(NULLIF(regimen_fiscal, ''), '601 - General de Ley Personas Morales'),
+                        metodo_pago = 'PUE',
+                        forma_pago = COALESCE(NULLIF(forma_pago, ''), '03 - Transferencia electrónica'),
+                        subtotal_factura = @subtotal,
+                        iva_factura = @iva,
+                        total_factura = @total,
+                        estado_facturacion = 'FACTURADO_TOTAL',
+                        folio_factura = @folio_factura,
+                        fecha_facturacion = @fecha_facturacion
+                    WHERE id_proyecto = @id_proyecto;", conexion, transaccion))
+                {
+                    cmdUpd.Parameters.AddWithValue("id_proyecto", idProy.Value);
+                    cmdUpd.Parameters.AddWithValue("fecha_creacion", fechaCreacion);
+                    cmdUpd.Parameters.AddWithValue("fecha_cierre", fechaCierre);
+
+                    var pFechaEnt = cmdUpd.Parameters.AddWithValue("fecha_entrega", fechaEntregaDate);
+                    pFechaEnt.NpgsqlDbType = NpgsqlDbType.Date;
+
+                    cmdUpd.Parameters.AddWithValue("subtotal", subtotal);
+                    cmdUpd.Parameters.AddWithValue("iva", iva);
+                    cmdUpd.Parameters.AddWithValue("total", total);
+                    cmdUpd.Parameters.AddWithValue("folio_factura", folioFacFinal);
+                    cmdUpd.Parameters.AddWithValue("fecha_facturacion", fechaFacturacion);
+                    cmdUpd.ExecuteNonQuery();
+                }
+
+                bool tieneActa;
+                using (var cmdExisteActa = new NpgsqlCommand(
+                    "SELECT 1 FROM actas_entrega WHERE id_proyecto = @id_proyecto AND NOT COALESCE(eliminado, FALSE) LIMIT 1;",
+                    conexion, transaccion))
+                {
+                    cmdExisteActa.Parameters.AddWithValue("id_proyecto", idProy.Value);
+                    tieneActa = cmdExisteActa.ExecuteScalar() != null;
+                }
+
+                if (!tieneActa)
+                {
+                    int nuevoFolioActa = CalculoTanqueService.CalcularMenorEnteroDisponible(foliosActaOcupados);
+                    foliosActaOcupados.Add(nuevoFolioActa);
+
+                    using var cmdInsActa = new NpgsqlCommand(@"
+                        INSERT INTO actas_entrega (
+                            numero_folio, id_proyecto, nombre_receptor, puesto_receptor,
+                            observaciones, firma_base64, fecha_entrega, eliminado
+                        )
+                        VALUES (
+                            @numero_folio, @id_proyecto, @receptor, @puesto,
+                            @obs, @firma, @fecha_entrega, FALSE
+                        );", conexion, transaccion);
+                    cmdInsActa.Parameters.AddWithValue("numero_folio", nuevoFolioActa);
+                    cmdInsActa.Parameters.AddWithValue("id_proyecto", idProy.Value);
+                    cmdInsActa.Parameters.AddWithValue("receptor", aj.ReceptorActa);
+                    cmdInsActa.Parameters.AddWithValue("puesto", aj.PuestoActa);
+                    cmdInsActa.Parameters.AddWithValue("obs", aj.ObservacionesActa);
+                    cmdInsActa.Parameters.AddWithValue("firma", FirmaHistoricaBase64);
+                    cmdInsActa.Parameters.AddWithValue("fecha_entrega", fechaActa);
+                    cmdInsActa.ExecuteNonQuery();
+                }
+            }
+
+            // ajustamos el unico pedido activo restante en taller con los datos exactos solicitados
+            using (var cmdUnicoActivo = new NpgsqlCommand(@"
+                UPDATE proyectos_venta
+                SET etapa_fabricacion = 'Soldadura y Pulido Sanitario',
+                    sector = 'Cosmética',
+                    monto_cotizado = CASE WHEN monto_cotizado < 80000 OR monto_cotizado > 160000 THEN 138000.00 ELSE monto_cotizado END,
+                    fecha_compromiso_entrega = DATE '2026-12-28'
+                WHERE NOT COALESCE(eliminado, FALSE)
+                  AND estado_venta = 'APROBADO'
+                  AND etapa_fabricacion <> 'Entregado'
+                  AND nombre_proyecto = 'Tanque de Formulaciones Cosméticas 1,000 L con Agitación';", conexion, transaccion))
+            {
+                cmdUnicoActivo.ExecuteNonQuery();
+            }
+
+            transaccion.Commit();
+        }
+
+        private static string AsignarFolioFactura2026(string preferido, HashSet<string> ocupados)
+        {
+            if (!ocupados.Contains(preferido)) return preferido;
+            int n = 1;
+            while (ocupados.Contains($"FAC-2026-{n:D3}")) n++;
+            return $"FAC-2026-{n:D3}";
         }
     }
 }
