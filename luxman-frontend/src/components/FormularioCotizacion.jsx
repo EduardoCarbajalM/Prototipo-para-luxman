@@ -585,11 +585,13 @@ function FormularioCotizacion({ alVolver }) {
       const urlTemporal = URL.createObjectURL(archivoBlob);
       const enlace = document.createElement("a");
       enlace.href = urlTemporal;
+      enlace.target = "_blank";
+      enlace.rel = "noopener noreferrer";
       enlace.download = nombreDescarga;
       document.body.appendChild(enlace);
       enlace.click();
       enlace.remove();
-      URL.revokeObjectURL(urlTemporal);
+      setTimeout(() => URL.revokeObjectURL(urlTemporal), 60000);
     } catch (error) {
       setMensajeError("No se pudo descargar el PDF de medidas: " + error.message);
     } finally {

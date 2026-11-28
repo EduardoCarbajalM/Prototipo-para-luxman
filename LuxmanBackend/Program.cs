@@ -9,7 +9,7 @@ var constructor = WebApplication.CreateBuilder(args);
 
 constructor.Services.AddControllers();
 
-// registramos los servicios de postgres, clientes, calculos, ventas, dashboard, actas y mongo
+// registramos los servicios de postgres, clientes, calculos, ventas, dashboard, actas, seeder y mongo
 constructor.Services.AddScoped<ClienteService>();
 constructor.Services.AddScoped<CotizacionService>();
 constructor.Services.AddScoped<PdfService>();
@@ -18,6 +18,8 @@ constructor.Services.AddScoped<CalculoTanquePdfService>();
 constructor.Services.AddScoped<ProyectoVentaService>();
 constructor.Services.AddScoped<DashboardService>();
 constructor.Services.AddScoped<ActaEntregaService>();
+constructor.Services.AddScoped<ActaEntregaPdfService>();
+constructor.Services.AddScoped<HistoricoComercialSeeder>();
 constructor.Services.AddScoped<SolicitudContactoService>();
 constructor.Services.AddSingleton<AdminAuthService>();
 constructor.Services.AddSingleton<MemebreteRepository>();
@@ -37,17 +39,20 @@ constructor.Services.AddCors(opciones =>
 
 var aplicacion = constructor.Build();
 
-// migracion automatica segura al arrancar el backend
+// migracion automatica segura y carga idempotente del historico 2024-2026 al arrancar el backend
 using (var alcance = aplicacion.Services.CreateScope())
 {
     try
     {
         var servicioActas = alcance.ServiceProvider.GetRequiredService<ActaEntregaService>();
         servicioActas.AsegurarEsquemaInicial();
+
+        var seeder = alcance.ServiceProvider.GetRequiredService<HistoricoComercialSeeder>();
+        seeder.SembrarSiVacio();
     }
     catch (Exception errorMigracion)
     {
-        Console.WriteLine("Aviso al inicializar esquema PostgreSQL en arranque: " + errorMigracion.Message);
+        Console.WriteLine("Aviso al inicializar esquema o historico en arranque: " + errorMigracion.Message);
     }
 }
 

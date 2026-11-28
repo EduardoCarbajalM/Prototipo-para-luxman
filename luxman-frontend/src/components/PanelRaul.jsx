@@ -728,7 +728,7 @@ function PanelRaul({ alCerrarSesion }) {
         <div className="d-flex justify-content-between align-items-start mb-4">
           <div>
             <h5 className="fw-bold mb-0">LUXMAN ERP</h5>
-            <small className="text-secondary">Panel del Ing. Raúl Romero</small>
+            <small className="text-secondary">Bienvenido Ing. Raúl</small>
           </div>
           <button
             type="button"

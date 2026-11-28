@@ -10,7 +10,7 @@ namespace LuxmanErp.Services
     // valida el pin del ingeniero en el servidor y entrega tokens de sesion en memoria
     public class AdminAuthService
     {
-        private static readonly TimeSpan DuracionSesion = TimeSpan.FromHours(8);
+        private static readonly TimeSpan DuracionSesion = TimeSpan.FromDays(30);
         private readonly string pinCorrecto;
         private readonly ConcurrentDictionary<string, DateTime> sesiones = new();
 

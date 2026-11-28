@@ -61,9 +61,9 @@ function AccesoAdmin({ alAccesoCorrecto, alVolver }) {
           <span className="badge text-bg-primary text-uppercase px-3 py-2 mb-3">
             Zona Restringida
           </span>
-          <h2 className="fw-bold mb-1">Acceso Administrativo</h2>
+          <h2 className="fw-bold mb-1">Panel Directivo</h2>
           <p className="text-secondary mb-4">
-            Ing. Raúl Romero, ingresa tu PIN de 5 dígitos.
+            Bienvenido, Ing. Raúl Romero. Ingresa tu PIN de 5 dígitos.
           </p>
 
           <form onSubmit={manejarEnvio}>

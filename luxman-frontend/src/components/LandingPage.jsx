@@ -161,7 +161,7 @@ const VARIANTES_TARJETA = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
 };
 
-function LandingPage({ alIrAAccesoAdmin }) {
+function LandingPage() {
   return (
     <div className="fondo-oscuro-gradiente">
       <nav className="navbar sticky-top navbar-cristal py-3">
@@ -351,19 +351,12 @@ function LandingPage({ alIrAAccesoAdmin }) {
         </motion.section>
       </div>
 
-      {/* ===== FOOTER con el botón discreto de acceso administrativo ===== */}
+      {/* ===== FOOTER PÚBLICO ===== */}
       <footer className="border-top py-4">
-        <div className="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+        <div className="container text-center">
           <small className="text-secondary">
             © 2026 Equipos Inoxidables Luxman. Todos los derechos reservados.
           </small>
-          <button
-            type="button"
-            onClick={alIrAAccesoAdmin}
-            className="btn btn-link btn-sm text-secondary text-decoration-none opacity-50"
-          >
-            Acceso Ing. Raúl
-          </button>
         </div>
       </footer>
     </div>

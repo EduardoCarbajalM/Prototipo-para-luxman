@@ -61,6 +61,8 @@ function VisorPdf({ url, nombre }) {
   const descargarArchivo = () => {
     const enlace = document.createElement('a');
     enlace.href = url;
+    enlace.target = '_blank';
+    enlace.rel = 'noopener noreferrer';
     enlace.download = nombre || 'cotizacion.pdf';
     document.body.appendChild(enlace);
     enlace.click();
@@ -106,6 +108,17 @@ function VisorPdf({ url, nombre }) {
               <ZoomIn size={16} strokeWidth={2} />
             </button>
           </div>
+
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-btn-accion-historial text-decoration-none"
+            title="Abrir PDF en una pestaña nueva"
+          >
+            <Eye size={16} strokeWidth={2} />
+            <span>Abrir PDF</span>
+          </a>
 
           <button
             id="btn-descargar"

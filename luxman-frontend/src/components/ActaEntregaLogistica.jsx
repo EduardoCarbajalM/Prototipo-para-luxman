@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Loader2,
   FileCheck2,
+  FileDown,
   History,
   RotateCcw,
   Eye,
@@ -42,6 +43,33 @@ function ActaEntregaLogistica({ alIrAVentas }) {
   const [mensajeError, setMensajeError] = useState("");
   const [actaRecienGuardada, setActaRecienGuardada] = useState(null);
   const [actaVistaFirma, setActaVistaFirma] = useState(null);
+  const [idDescargandoPdf, setIdDescargandoPdf] = useState(null);
+
+  const descargarPdfActa = async (acta) => {
+    setIdDescargandoPdf(acta.id_acta);
+    setMensajeError("");
+    try {
+      const respuesta = await fetch(`${URL_ACTAS}/${acta.id_acta}/pdf`);
+      if (!respuesta.ok) {
+        throw new Error((await respuesta.text()) || "No se pudo generar el PDF del acta.");
+      }
+      const archivoBlob = await respuesta.blob();
+      const urlTemporal = URL.createObjectURL(archivoBlob);
+      const enlace = document.createElement("a");
+      enlace.href = urlTemporal;
+      enlace.target = "_blank";
+      enlace.rel = "noopener noreferrer";
+      enlace.download = `Acta_Entrega_Luxman_${acta.codigo_folio}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      setTimeout(() => URL.revokeObjectURL(urlTemporal), 60000);
+    } catch (err) {
+      setMensajeError("No se pudo abrir/descargar el PDF del acta: " + err.message);
+    } finally {
+      setIdDescargandoPdf(null);
+    }
+  };
 
   const cargarDatos = useCallback(async () => {
     setCargandoDatos(true);
@@ -468,10 +496,19 @@ function ActaEntregaLogistica({ alIrAVentas }) {
                             <button
                               type="button"
                               onClick={() => setActaVistaFirma(acta)}
-                              className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+                              className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
                             >
                               <Eye size={14} />
                               <span>Ver</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => descargarPdfActa(acta)}
+                              disabled={idDescargandoPdf === acta.id_acta}
+                              className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+                            >
+                              <FileDown size={14} />
+                              <span>PDF</span>
                             </button>
                           </div>
                         </td>
@@ -546,6 +583,15 @@ function ActaEntregaLogistica({ alIrAVentas }) {
                   </div>
                 </div>
                 <div className="modal-footer bg-light">
+                  <button
+                    type="button"
+                    onClick={() => descargarPdfActa(actaVistaFirma)}
+                    disabled={idDescargandoPdf === actaVistaFirma.id_acta}
+                    className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
+                  >
+                    <FileDown size={14} />
+                    <span>Descargar PDF de Acta</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setActaVistaFirma(null)}
